@@ -1,0 +1,13 @@
+# alertmanager.yml — Règles d'alerte (Palier E.3)
+# À COMPLÉTER : route vers un receiver (webhook Slack simulé ou email)
+# Exemple de règle attendue (définie côté Prometheus rules) :
+#   alert: HighErrorRate
+#   expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+#   for: 5m
+
+route:
+  receiver: 'default'
+
+receivers:
+  - name: 'default'
+    # TODO: webhook_configs ou email_configs
