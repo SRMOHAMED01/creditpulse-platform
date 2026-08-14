@@ -1,9 +1,4 @@
-"""
-train.py
-Entraînement du modèle de scoring crédit - Palier A.1
-"""
-
-from pathlib import Path
+import os
 
 import numpy as np
 import pandas as pd
@@ -19,10 +14,6 @@ from sklearn.metrics import (
 from xgboost import XGBClassifier
 
 
-# ============================================================
-# Configuration
-# ============================================================
-
 FEATURE_COLUMNS = [
     "revenu_mensuel",
     "dettes_actuelles",
@@ -33,62 +24,38 @@ FEATURE_COLUMNS = [
     "dti_ratio",
 ]
 
-TARGET_COLUMN = "defaut_paiement"
-
-MODEL_PATH = Path(__file__).parent / "model_registry" / "model.json"
-
-
-# ============================================================
-# 1. Génération du dataset
-# ============================================================
 
 def generate_synthetic_data(
     n_samples: int = 10_000,
     random_state: int = 42,
 ) -> pd.DataFrame:
-    """
-    Génère un dataset synthétique de profils financiers.
-
-    Colonnes :
-    - revenu_mensuel
-    - dettes_actuelles
-    - age
-    - anciennete_emploi
-    - nombre_credits_en_cours
-    - historique_paiement
-    - dti_ratio
-    - defaut_paiement
-    """
 
     rng = np.random.default_rng(random_state)
 
-    # Revenu mensuel en MAD
-    revenu_mensuel = rng.lognormal(
-        mean=np.log(12_000),
-        sigma=0.45,
+    revenu_mensuel = rng.normal(
+        loc=12000,
+        scale=5000,
         size=n_samples,
     )
 
     revenu_mensuel = np.clip(
         revenu_mensuel,
-        3_000,
-        60_000,
+        3000,
+        50000,
     )
 
-    # Dette actuelle
-    dettes_actuelles = rng.lognormal(
-        mean=np.log(4_000),
-        sigma=0.75,
+    dettes_actuelles = rng.normal(
+        loc=4000,
+        scale=3000,
         size=n_samples,
     )
 
     dettes_actuelles = np.clip(
         dettes_actuelles,
         0,
-        40_000,
+        30000,
     )
 
-    # Age
     age = rng.normal(
         loc=40,
         scale=10,
@@ -101,7 +68,6 @@ def generate_synthetic_data(
         75,
     )
 
-    # Ancienneté professionnelle
     anciennete_emploi = rng.exponential(
         scale=5,
         size=n_samples,
@@ -113,7 +79,6 @@ def generate_synthetic_data(
         40,
     )
 
-    # Nombre de crédits
     nombre_credits_en_cours = rng.poisson(
         lam=1.5,
         size=n_samples,
@@ -125,38 +90,28 @@ def generate_synthetic_data(
         8,
     )
 
-    # Historique de paiement
-    # 0 = très mauvais
-    # 1 = excellent
     historique_paiement = rng.beta(
         a=8,
         b=2,
         size=n_samples,
     )
 
-    # DTI = dette / revenu
     dti_ratio = dettes_actuelles / revenu_mensuel
 
-    # --------------------------------------------------------
-    # Construction d'un score de risque latent
-    # --------------------------------------------------------
-
+    # Score latent de risque.
     risk_score = (
         3.5 * dti_ratio
         + 2.5 * (1 - historique_paiement)
-        + 0.18 * nombre_credits_en_cours
-        - 0.04 * anciennete_emploi
+        + 0.15 * nombre_credits_en_cours
+        - 0.03 * anciennete_emploi
         - 0.005 * age
     )
 
-    # Transformation en probabilité
+    # Transformation en probabilité.
     probability_default = 1 / (
-        1 + np.exp(
-            -(risk_score - 1.8)
-        )
+        1 + np.exp(-risk_score + 2.5)
     )
 
-    # Variable cible
     defaut_paiement = rng.binomial(
         1,
         probability_default,
@@ -178,32 +133,18 @@ def generate_synthetic_data(
     return df
 
 
-# ============================================================
-# 2. Entraînement XGBoost
-# ============================================================
-
-def train_model(
-    df: pd.DataFrame,
-) -> tuple[XGBClassifier, dict]:
-    """
-    Entraîne le modèle XGBoost et calcule les métriques.
-    """
+def train_model(df: pd.DataFrame):
 
     X = df[FEATURE_COLUMNS]
-    y = df[TARGET_COLUMN]
+    y = df["defaut_paiement"]
 
-    # Train / test stratifié
     X_train, X_test, y_train, y_test = train_test_split(
         X,
         y,
-        test_size=0.20,
+        test_size=0.2,
         random_state=42,
         stratify=y,
     )
-
-    # --------------------------------------------------------
-    # XGBoost
-    # --------------------------------------------------------
 
     model = XGBClassifier(
         n_estimators=500,
@@ -214,15 +155,7 @@ def train_model(
         objective="binary:logistic",
         eval_metric="logloss",
         random_state=42,
-        n_jobs=-1,
     )
-
-    # Early stopping compatible avec les versions
-    # récentes de XGBoost via callback si disponible.
-    #
-    # Pour la première version, on entraîne sans callback.
-    # Nous ajouterons l'early stopping après validation
-    # de la version XGBoost installée.
 
     model.fit(
         X_train,
@@ -231,17 +164,9 @@ def train_model(
         verbose=False,
     )
 
-    # --------------------------------------------------------
-    # Evaluation
-    # --------------------------------------------------------
+    probabilities = model.predict_proba(X_test)[:, 1]
 
-    probabilities = model.predict_proba(
-        X_test
-    )[:, 1]
-
-    predictions = (
-        probabilities >= 0.5
-    ).astype(int)
+    predictions = (probabilities >= 0.5).astype(int)
 
     metrics = {
         "roc_auc": roc_auc_score(
@@ -265,99 +190,46 @@ def train_model(
         ),
     }
 
-    print()
-    print("=" * 50)
-    print("MODEL EVALUATION")
-    print("=" * 50)
-
+    print("\nModel evaluation")
+    print("----------------")
     for name, value in metrics.items():
-        print(f"{name:12s}: {value:.4f}")
-
-    print("=" * 50)
+        print(f"{name}: {value:.4f}")
 
     return model, metrics
 
 
-# ============================================================
-# 3. Sauvegarde du modèle
-# ============================================================
-
 def save_model(
-    model: XGBClassifier,
-    path: Path = MODEL_PATH,
-) -> None:
-    """
-    Sauvegarde le modèle XGBoost.
-    """
+    model,
+    path="model_registry/model.json",
+):
 
-    path.parent.mkdir(
-        parents=True,
+    os.makedirs(
+        os.path.dirname(path),
         exist_ok=True,
     )
 
-    model.save_model(
-        str(path)
-    )
+    model.save_model(path)
 
-    print()
-    print(f"Model saved to:")
-    print(path)
+    print(f"\nModel saved to: {path}")
 
 
-# ============================================================
-# 4. Main
-# ============================================================
+if __name__ == "__main__":
 
-def main() -> None:
-
-    print("=" * 50)
-    print("CREDITPULSE - ML TRAINING")
-    print("=" * 50)
-
-    # Dataset
-    print()
-    print("1. Generating synthetic dataset...")
+    print("Generating synthetic credit data...")
 
     df = generate_synthetic_data(
         n_samples=10_000
     )
 
-    print(
-        f"Dataset shape: {df.shape}"
-    )
+    print("\nDataset shape:")
+    print(df.shape)
 
-    print()
-    print("Columns:")
-    print(list(df.columns))
+    print("\nDataset preview:")
+    print(df.head())
 
-    print()
-    print("Default distribution:")
-    print(
-        df[TARGET_COLUMN]
-        .value_counts()
-    )
+    print("\nDefault distribution:")
+    print(df["defaut_paiement"].value_counts())
 
-    # Training
-    print()
-    print("2. Training XGBoost...")
+    model, metrics = train_model(df)
 
-    model, metrics = train_model(
-        df
-    )
-
-    # Save
-    print()
-    print("3. Saving model...")
-
-    save_model(
-        model
-    )
-
-    print()
-    print("=" * 50)
-    print("TRAINING COMPLETED")
-    print("=" * 50)
-
-
-if __name__ == "__main__":
-    main()
+    save_model(model)
