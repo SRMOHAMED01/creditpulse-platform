@@ -1,4 +1,4 @@
-"""
+﻿"""
 security.py — Gestion des passwords et JWT
 """
 

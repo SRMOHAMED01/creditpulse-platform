@@ -1,4 +1,4 @@
-"""
+﻿"""
 main.py — Point d'entrée de l'API FastAPI
 """
 

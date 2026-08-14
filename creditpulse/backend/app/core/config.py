@@ -1,4 +1,4 @@
-"""
+﻿"""
 config.py — Configuration centrale de l'application
 """
 
