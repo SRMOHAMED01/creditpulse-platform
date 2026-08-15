@@ -1,9 +1,25 @@
-﻿# Python
+﻿# ==========================================
+# 1. Environment & Secrets
+# ==========================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# ==========================================
+# 2. Python & Virtual Environments
+# ==========================================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+.venv/
+venv/
+ENV/
+env/
 build/
 develop-eggs/
 dist/
@@ -19,52 +35,98 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.manifest
+*.spec
 
-# Virtual environments
-.venv/
-venv/
-ENV/
-env/
+# ==========================================
+# 3. Machine Learning & MLflow Artifacts
+# ==========================================
+# MLflow tracking runs & artifacts
+mlruns/
+.mlruns/
+ml/mlruns/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Trained models & serialized objects
+*.pkl
+*.joblib
+*.onnx
+*.h5
+*.pb
+*.pth
+*.pt
+ml/model_registry/*.json
+!ml/model_registry/.gitkeep
 
-# Environment variables
-.env
-.env.local
-
-# Logs
-*.log
+# ==========================================
+# 4. Data Pipeline & Airflow / dbt
+# ==========================================
+# Airflow local DB & logs
+data_pipeline/airflow.db
+data_pipeline/airflow.cfg
+data_pipeline/logs/
+airflow.db
+airflow.cfg
 logs/
 
-# Database
+# dbt compilation targets & packages
+data_pipeline/dbt_project/target/
+data_pipeline/dbt_project/dbt_packages/
+data_pipeline/dbt_project/logs/
+target/
+dbt_packages/
+
+# Great Expectations uncommitted files
+data_pipeline/great_expectations/uncommitted/
+
+# SQLite & local databases
 *.db
 *.sqlite
 *.sqlite3
 
-# ML
-ml/model_registry/*.json
-ml/*.pkl
-ml/*.joblib
-
-# Node / Frontend
+# ==========================================
+# 5. Frontend (Node / React)
+# ==========================================
 frontend/node_modules/
 frontend/dist/
 frontend/build/
 frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
-# OS
-.DS_Store
-Thumbs.db
+# ==========================================
+# 6. IDEs & Editors
+# ==========================================
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-workspace
+*.sublime-project
 
-# Docker
+# ==========================================
+# 7. Docker & Infrastructure
+# ==========================================
 docker-compose.override.yml
+.docker/
 
-# Kubernetes
-*.key
-*.crt
-*.pem
+# ==========================================
+# 8. OS-Generated Files
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini

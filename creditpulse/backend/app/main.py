@@ -1,9 +1,12 @@
-﻿"""
-main.py — Point d'entrée de l'API FastAPI
+"""
+Point d'entrée de l'API FastAPI CreditPulse.
 """
 
 from fastapi import FastAPI
+
 from .core.config import settings
+from .routers import credit
+
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -11,10 +14,30 @@ app = FastAPI(
 )
 
 
+# ============================================================
+# ROUTERS
+# ============================================================
+
+app.include_router(
+    credit.router
+)
+
+
+# ============================================================
+# HEALTH CHECK
+# ============================================================
+
 @app.get("/health")
 def health_check():
-    return {"status": "healthy", "message": "CreditPulse API is running"}
+    return {
+        "status": "healthy",
+        "message": "CreditPulse API is running",
+    }
 
+
+# ============================================================
+# ROOT
+# ============================================================
 
 @app.get("/")
 def root():

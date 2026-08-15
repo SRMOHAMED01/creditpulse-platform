@@ -1,14 +1,55 @@
 """
-credit.py — Route de demande de crédit (Palier A.2, puis C)
+Routes de demande de crédit.
 
-PALIER A (synchrone) :
-  POST /credit/apply -> récupère le profil, appelle ml.serve.predict()
-                        directement, sauvegarde et retourne le résultat.
+Palier A.2 :
+POST /credit/apply
 
-PALIER C (event-driven, à remplacer) :
-  POST /credit/apply -> publie un événement dans Kafka (topic credit-requests)
-                        via app/kafka/producer.py, retourne un statut "pending"
-                        avec un id de demande.
-  GET  /credit/status/{application_id} -> pour que le frontend poll le résultat
-                        une fois traité par le consumer.
+Le router reçoit la demande, appelle le service ML
+et retourne le score ainsi que l'explication SHAP.
 """
+
+from fastapi import APIRouter
+
+from ..schemas.credit import (
+    CreditApplicationRequest,
+    CreditApplicationResponse,
+)
+
+from ..services.ml_service import predict_credit
+
+
+router = APIRouter(
+    prefix="/credit",
+    tags=["Credit"],
+)
+
+
+@router.post(
+    "/apply",
+    response_model=CreditApplicationResponse,
+)
+def apply_credit(
+    application: CreditApplicationRequest,
+):
+    """
+    Effectue le scoring d'une demande de crédit.
+    """
+
+    # Transformer le modèle Pydantic en dictionnaire
+    profile = {
+        "revenu_mensuel": application.revenu_mensuel,
+        "dettes_actuelles": application.dettes_actuelles,
+        "age": application.age,
+        "anciennete_emploi": application.anciennete_emploi,
+        "nombre_credits_en_cours": (
+            application.nombre_credits_en_cours
+        ),
+        "historique_paiement": (
+            application.historique_paiement
+        ),
+    }
+
+    # Appel du moteur ML
+    result = predict_credit(profile)
+
+    return result

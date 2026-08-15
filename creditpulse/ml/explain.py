@@ -1,27 +1,18 @@
 """
-explain.py — Explicabilité SHAP (Palier A.1)
-
-Fonctions :
-1. load_model(path) -> XGBClassifier
-2. get_shap_values(model, profile_df) -> shap.Explanation
-3. format_explanation(shap_values, feature_names) -> list[dict]
-   Retourne une liste triée par importance absolue :
-   [
-     {"feature": "dti_ratio", "impact": +0.32, "direction": "increases_risk"},
-     {"feature": "historique_paiement", "impact": -0.21, "direction": "decreases_risk"},
-     ...
-   ]
+explain.py
+Explicabilité du modèle de scoring crédit avec SHAP.
 """
 
 from pathlib import Path
-from typing import List, Dict
-import pandas as pd
-import xgboost as xgb
-from xgboost import XGBClassifier
-import shap
 
-MODEL_DIR = Path(__file__).parent / "model_registry"
-MODEL_PATH = MODEL_DIR / "model.json"
+import pandas as pd
+import shap
+import xgboost as xgb
+
+
+# ============================================================
+# 1. FEATURE NAMES
+# ============================================================
 
 FEATURE_COLUMNS = [
     "revenu_mensuel",
@@ -34,78 +25,177 @@ FEATURE_COLUMNS = [
 ]
 
 
-def load_model(path: Path = MODEL_PATH) -> XGBClassifier:
+# ============================================================
+# 2. LOAD MODEL
+# ============================================================
+
+def load_model(path="model_registry/model.json"):
     """
     Charge le modèle XGBoost sauvegardé par train.py.
     """
-    model = XGBClassifier()
-    model.load_model(str(path))
+
+    model_path = Path(__file__).parent / path
+
+    if not model_path.exists():
+        raise FileNotFoundError(
+            f"Model not found: {model_path}"
+        )
+
+    model = xgb.XGBClassifier()
+
+    model.load_model(
+        str(model_path)
+    )
+
     return model
 
 
-def get_shap_values(model: XGBClassifier, profile_df: pd.DataFrame):
+# ============================================================
+# 3. GET SHAP VALUES
+# ============================================================
+
+def get_shap_values(
+    model,
+    profile_df: pd.DataFrame,
+):
     """
-    Calcule les valeurs SHAP pour un profil donné (DataFrame 1 ligne).
+    Calcule les valeurs SHAP pour un ou plusieurs profils.
+
+    TreeExplainer est utilisé car notre modèle est basé
+    sur XGBoost et donc sur des arbres de décision.
     """
-    # TreeExplainer est optimisé pour les modèles d'arbres (XGBoost, LightGBM, etc.)
+
     explainer = shap.TreeExplainer(model)
-    shap_values = explainer.shap_values(profile_df[FEATURE_COLUMNS])
+
+    shap_values = explainer(
+        profile_df
+    )
+
     return shap_values
 
 
-def format_explanation(shap_values, feature_names: List[str]) -> List[Dict]:
-    """
-    Formate les SHAP values en liste de dicts triés par importance absolue.
+# ============================================================
+# 4. FORMAT EXPLANATION
+# ============================================================
 
-    shap_values :
-      - Pour XGBClassifier binaire, shap_values peut être de shape (n_samples, n_features)
-        ou (n_samples, n_features, 2) selon la version / configuration.
-      - Ici, on prend la colonne pour la classe 1 (défaut).
+def format_explanation(
+    shap_values,
+    feature_names,
+):
     """
-    # Si shape 3D (n_samples, n_features, 2), on prend la classe 1
-    if shap_values.ndim == 3:
-        shap_values = shap_values[:, :, 1]
+    Transforme les valeurs SHAP en format JSON-friendly.
 
-    # On prend la première (et seule) ligne
-    values = shap_values[0]
+    Retourne une liste triée par importance absolue.
+    """
+
+    values = shap_values.values[0]
 
     explanations = []
-    for feat, val in zip(feature_names, values):
-        direction = "increases_risk" if val > 0 else "decreases_risk"
-        explanations.append({
-            "feature": feat,
-            "impact": round(float(val), 4),
-            "direction": direction,
-        })
 
-    # Tri par importance absolue décroissante
-    explanations.sort(key=lambda x: abs(x["impact"]), reverse=True)
+    for feature, impact in zip(
+        feature_names,
+        values,
+    ):
+
+        impact = float(impact)
+
+        if impact > 0:
+            direction = "increases_risk"
+        elif impact < 0:
+            direction = "decreases_risk"
+        else:
+            direction = "neutral"
+
+        explanations.append(
+            {
+                "feature": feature,
+                "impact": round(impact, 4),
+                "direction": direction,
+            }
+        )
+
+    # Les variables avec le plus grand impact
+    # apparaissent en premier.
+    explanations.sort(
+        key=lambda item: abs(item["impact"]),
+        reverse=True,
+    )
+
     return explanations
 
 
 # ============================================================
-# Petit test local (optionnel)
+# 5. EXPLAIN PROFILE
+# ============================================================
+
+def explain_profile(
+    model,
+    profile_df: pd.DataFrame,
+):
+    """
+    Fonction principale permettant d'expliquer
+    la prédiction d'un profil.
+    """
+
+    shap_values = get_shap_values(
+        model,
+        profile_df,
+    )
+
+    explanation = format_explanation(
+        shap_values,
+        profile_df.columns.tolist(),
+    )
+
+    return explanation
+
+
+# ============================================================
+# 6. TEST
 # ============================================================
 
 if __name__ == "__main__":
-    # Exemple de profil
-    profile = {
-        "revenu_mensuel": 15000,
-        "dettes_actuelles": 3000,
-        "age": 30,
-        "anciennete_emploi": 5,
-        "nombre_credits_en_cours": 1,
-        "historique_paiement": 0.95,
-    }
 
-    # Calcul du DTI
-    profile["dti_ratio"] = round(profile["dettes_actuelles"] / profile["revenu_mensuel"], 3)
+    print("=" * 60)
+    print("CreditPulse - SHAP Explanation")
+    print("=" * 60)
 
-    profile_df = pd.DataFrame([profile])
+    print("\n[1/3] Loading model...")
 
     model = load_model()
-    shap_vals = get_shap_values(model, profile_df)
-    exp = format_explanation(shap_vals, FEATURE_COLUMNS)
 
-    import json
-    print(json.dumps(exp, indent=2, ensure_ascii=False))
+    print("Model loaded successfully.")
+
+    # Exemple de client
+    profile = pd.DataFrame(
+        [
+            {
+                "revenu_mensuel": 15000,
+                "dettes_actuelles": 3000,
+                "age": 30,
+                "anciennete_emploi": 5,
+                "nombre_credits_en_cours": 1,
+                "historique_paiement": 0.95,
+                "dti_ratio": 3000 / 15000,
+            }
+        ]
+    )
+
+    print("\n[2/3] Calculating SHAP values...")
+
+    explanation = explain_profile(
+        model,
+        profile,
+    )
+
+    print("\n[3/3] Explanation:")
+
+    for item in explanation:
+
+        print(
+            f"- {item['feature']}: "
+            f"{item['impact']:+.4f} "
+            f"({item['direction']})"
+        )
+
+    print("\nSHAP explanation completed.")
