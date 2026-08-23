@@ -1,38 +1,82 @@
-# ============================================================
-# docker-compose.yml — Orchestration complète CreditPulse
-# ============================================================
-# À COMPLÉTER (Palier F). Services attendus :
-#   - postgres        : base de données principale
-#   - redis           : cache + sessions
-#   - zookeeper+kafka  : broker d'événements (Palier C)
-#   - backend          : API FastAPI
-#   - kafka-consumer    : service séparé qui consomme les topics Kafka
-#   - frontend           : app React (servie en build statique ou dev server)
-#   - airflow-webserver + airflow-scheduler : orchestration pipeline (Palier B)
-#   - mlflow              : tracking des modèles (Palier D)
-#   - prometheus           : collecte de métriques (Palier E)
-#   - grafana                : dashboards (Palier E)
-#   - alertmanager             : alerting (Palier E)
-#
-# Conseil : commence par ajouter seulement postgres + backend + frontend
-# (Palier A), puis ajoute les autres services au fur et à mesure des paliers.
-
-version: "3.9"
-
 services:
+
+  # ============================================================
+  # PostgreSQL
+  # ============================================================
+
   postgres:
     image: postgres:16
-    env_file: .env
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
     ports:
       - "5432:5432"
+
     volumes:
       - pg_data:/var/lib/postgresql/data
 
-  # TODO Palier A : backend, frontend
-  # TODO Palier C : zookeeper, kafka, kafka-consumer
-  # TODO Palier B : airflow-webserver, airflow-scheduler
-  # TODO Palier D : mlflow
-  # TODO Palier E : prometheus, grafana, alertmanager
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+
+  # ============================================================
+  # Backend — FastAPI
+  # ============================================================
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY}
+      MODEL_PATH: /app/ml/model_registry/model.json
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    volumes:
+      - ./backend:/app
+      - ./ml:/app/ml
+
+
+  # ============================================================
+  # Frontend — React + Vite
+  # ============================================================
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+
+    ports:
+      - "5173:5173"
+
+    depends_on:
+      - backend
+
+
+# ============================================================
+# Volumes
+# ============================================================
 
 volumes:
   pg_data:

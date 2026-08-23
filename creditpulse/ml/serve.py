@@ -1,5 +1,6 @@
 """
 serve.py
+
 Point d'entrée du modèle de scoring utilisé par le backend.
 
 Responsabilités :
@@ -33,6 +34,20 @@ ACCEPTANCE_THRESHOLD = 60
 
 
 # ============================================================
+# FEATURE COLUMNS
+# ============================================================
+
+FEATURE_ORDER = [
+    "revenu_mensuel",
+    "dettes_actuelles",
+    "age",
+    "anciennete_emploi",
+    "nombre_credits_en_cours",
+    "historique_paiement",
+]
+
+
+# ============================================================
 # LOAD MODEL
 # ============================================================
 
@@ -41,7 +56,7 @@ def get_model():
     """
     Charge le modèle une seule fois.
 
-    Grâce à lru_cache, le modèle ne sera pas rechargé
+    Grâce à lru_cache, le modèle n'est pas rechargé
     à chaque prédiction.
     """
 
@@ -49,28 +64,23 @@ def get_model():
 
 
 # ============================================================
-# PREPARE PROFILE
+# VALIDATE PROFILE
 # ============================================================
 
-def prepare_profile(profile: dict) -> pd.DataFrame:
+def validate_profile(
+    profile: dict,
+):
     """
-    Transforme le dictionnaire reçu en DataFrame
-    utilisable par XGBoost et SHAP.
+    Vérifie les valeurs du profil financier.
     """
 
-    required_fields = [
-        "revenu_mensuel",
-        "dettes_actuelles",
-        "age",
-        "anciennete_emploi",
-        "nombre_credits_en_cours",
-        "historique_paiement",
-    ]
+    # --------------------------------------------------------
+    # Required fields
+    # --------------------------------------------------------
 
-    # Vérification des champs obligatoires
     missing_fields = [
         field
-        for field in required_fields
+        for field in FEATURE_ORDER
         if field not in profile
     ]
 
@@ -79,48 +89,159 @@ def prepare_profile(profile: dict) -> pd.DataFrame:
             f"Missing fields: {missing_fields}"
         )
 
-    # Copie pour ne pas modifier le dictionnaire
-    # original envoyé par l'utilisateur.
-    data = profile.copy()
-
     # --------------------------------------------------------
-    # Calcul du DTI
+    # Numeric conversion
     # --------------------------------------------------------
 
-    revenu = float(
-        data["revenu_mensuel"]
-    )
+    try:
 
-    dettes = float(
-        data["dettes_actuelles"]
-    )
+        revenu = float(
+            profile["revenu_mensuel"]
+        )
+
+        dettes = float(
+            profile["dettes_actuelles"]
+        )
+
+        age = float(
+            profile["age"]
+        )
+
+        anciennete = float(
+            profile["anciennete_emploi"]
+        )
+
+        credits = float(
+            profile["nombre_credits_en_cours"]
+        )
+
+        historique = float(
+            profile["historique_paiement"]
+        )
+
+    except (TypeError, ValueError) as exc:
+
+        raise ValueError(
+            "All financial profile fields must be numeric."
+        ) from exc
+
+    # --------------------------------------------------------
+    # Business validation
+    # --------------------------------------------------------
 
     if revenu <= 0:
         raise ValueError(
-            "revenu_mensuel must be greater than 0"
+            "revenu_mensuel must be greater than 0."
         )
 
-    data["dti_ratio"] = (
-        dettes / revenu
+    if dettes < 0:
+        raise ValueError(
+            "dettes_actuelles cannot be negative."
+        )
+
+    if not 18 <= age <= 100:
+        raise ValueError(
+            "age must be between 18 and 100."
+        )
+
+    if anciennete < 0:
+        raise ValueError(
+            "anciennete_emploi cannot be negative."
+        )
+
+    if credits < 0:
+        raise ValueError(
+            "nombre_credits_en_cours cannot be negative."
+        )
+
+    if not 0 <= historique <= 1:
+        raise ValueError(
+            "historique_paiement must be between 0 and 1."
+        )
+
+
+# ============================================================
+# PREPARE PROFILE
+# ============================================================
+
+def prepare_profile(
+    profile: dict,
+) -> pd.DataFrame:
+    """
+    Transforme le dictionnaire reçu en DataFrame
+    utilisable par XGBoost et SHAP.
+    """
+
+    validate_profile(profile)
+
+    # Copie pour ne pas modifier le dictionnaire original
+    data = profile.copy()
+
+    # --------------------------------------------------------
+    # Convert values
+    # --------------------------------------------------------
+
+    data["revenu_mensuel"] = float(
+        data["revenu_mensuel"]
+    )
+
+    data["dettes_actuelles"] = float(
+        data["dettes_actuelles"]
+    )
+
+    data["age"] = float(
+        data["age"]
+    )
+
+    data["anciennete_emploi"] = float(
+        data["anciennete_emploi"]
+    )
+
+    data["nombre_credits_en_cours"] = float(
+        data["nombre_credits_en_cours"]
+    )
+
+    data["historique_paiement"] = float(
+        data["historique_paiement"]
     )
 
     # --------------------------------------------------------
-    # Création du DataFrame
+    # Calculate DTI
     # --------------------------------------------------------
 
-    feature_order = [
-        "revenu_mensuel",
-        "dettes_actuelles",
-        "age",
-        "anciennete_emploi",
-        "nombre_credits_en_cours",
-        "historique_paiement",
-        "dti_ratio",
+    data["dti_ratio"] = (
+        data["dettes_actuelles"]
+        / data["revenu_mensuel"]
+    )
+
+    # --------------------------------------------------------
+    # Create DataFrame
+    # --------------------------------------------------------
+
+    model_features = [
+        data[field]
+        for field in [
+            "revenu_mensuel",
+            "dettes_actuelles",
+            "age",
+            "anciennete_emploi",
+            "nombre_credits_en_cours",
+            "historique_paiement",
+            "dti_ratio",
+        ]
     ]
 
     profile_df = pd.DataFrame(
-        [[data[field] for field in feature_order]],
-        columns=feature_order,
+        [model_features],
+        columns=[
+            "revenu_mensuel",
+            "dettes_actuelles",
+            "age",
+            "anciennete_emploi",
+            "nombre_credits_en_cours",
+            "historique_paiement",
+            "dti_ratio",
+        ],
     )
 
     return profile_df
@@ -130,17 +251,14 @@ def prepare_profile(profile: dict) -> pd.DataFrame:
 # PREDICT
 # ============================================================
 
-def predict(profile: dict) -> dict:
+def predict(
+    profile: dict,
+) -> dict:
     """
     Effectue une prédiction de crédit.
 
-    Paramètre
-    ---------
-    profile : dict
-        Profil financier du client.
-
-    Retour
-    ------
+    Returns
+    -------
     dict
         {
             "score": int,
@@ -151,13 +269,13 @@ def predict(profile: dict) -> dict:
     """
 
     # --------------------------------------------------------
-    # 1. Charger le modèle
+    # 1. Load model
     # --------------------------------------------------------
 
     model = get_model()
 
     # --------------------------------------------------------
-    # 2. Préparer le profil
+    # 2. Prepare profile
     # --------------------------------------------------------
 
     profile_df = prepare_profile(
@@ -165,7 +283,7 @@ def predict(profile: dict) -> dict:
     )
 
     # --------------------------------------------------------
-    # 3. Probabilité de défaut
+    # 3. Default probability
     # --------------------------------------------------------
 
     probability_default = model.predict_proba(
@@ -173,21 +291,20 @@ def predict(profile: dict) -> dict:
     )[0][1]
 
     # --------------------------------------------------------
-    # 4. Calcul du score
+    # 4. Credit score
     # --------------------------------------------------------
 
     score = round(
         (1 - probability_default) * 100
     )
 
-    # Limiter le score entre 0 et 100
     score = max(
         0,
-        min(100, score)
+        min(100, score),
     )
 
     # --------------------------------------------------------
-    # 5. Décision
+    # 5. Decision
     # --------------------------------------------------------
 
     if score >= ACCEPTANCE_THRESHOLD:
@@ -196,7 +313,7 @@ def predict(profile: dict) -> dict:
         decision = "refusé"
 
     # --------------------------------------------------------
-    # 6. Explication SHAP
+    # 6. SHAP explanation
     # --------------------------------------------------------
 
     explanation = explain_profile(
@@ -205,7 +322,7 @@ def predict(profile: dict) -> dict:
     )
 
     # --------------------------------------------------------
-    # 7. Résultat final
+    # 7. Final result
     # --------------------------------------------------------
 
     return {
@@ -241,7 +358,9 @@ if __name__ == "__main__":
     print("\n[1/2] Customer profile:")
 
     for key, value in test_profile.items():
-        print(f"  {key}: {value}")
+        print(
+            f"  {key}: {value}"
+        )
 
     print("\n[2/2] Prediction:")
 

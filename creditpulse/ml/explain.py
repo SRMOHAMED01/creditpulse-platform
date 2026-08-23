@@ -29,7 +29,9 @@ FEATURE_COLUMNS = [
 # 2. LOAD MODEL
 # ============================================================
 
-def load_model(path="model_registry/model.json"):
+def load_model(
+    path="model_registry/model.json",
+):
     """
     Charge le modèle XGBoost sauvegardé par train.py.
     """
@@ -51,7 +53,36 @@ def load_model(path="model_registry/model.json"):
 
 
 # ============================================================
-# 3. GET SHAP VALUES
+# 3. VALIDATE PROFILE
+# ============================================================
+
+def validate_profile(
+    profile_df: pd.DataFrame,
+):
+    """
+    Vérifie que le profil contient exactement
+    les features utilisées pendant l'entraînement.
+    """
+
+    missing_features = [
+        feature
+        for feature in FEATURE_COLUMNS
+        if feature not in profile_df.columns
+    ]
+
+    if missing_features:
+        raise ValueError(
+            "Missing features: "
+            + ", ".join(missing_features)
+        )
+
+    return profile_df[
+        FEATURE_COLUMNS
+    ]
+
+
+# ============================================================
+# 4. GET SHAP VALUES
 # ============================================================
 
 def get_shap_values(
@@ -61,11 +92,13 @@ def get_shap_values(
     """
     Calcule les valeurs SHAP pour un ou plusieurs profils.
 
-    TreeExplainer est utilisé car notre modèle est basé
-    sur XGBoost et donc sur des arbres de décision.
+    TreeExplainer est utilisé car le modèle
+    est basé sur XGBoost.
     """
 
-    explainer = shap.TreeExplainer(model)
+    explainer = shap.TreeExplainer(
+        model
+    )
 
     shap_values = explainer(
         profile_df
@@ -75,7 +108,7 @@ def get_shap_values(
 
 
 # ============================================================
-# 4. FORMAT EXPLANATION
+# 5. FORMAT EXPLANATION
 # ============================================================
 
 def format_explanation(
@@ -83,7 +116,8 @@ def format_explanation(
     feature_names,
 ):
     """
-    Transforme les valeurs SHAP en format JSON-friendly.
+    Transforme les valeurs SHAP en format
+    JSON-friendly.
 
     Retourne une liste triée par importance absolue.
     """
@@ -101,23 +135,28 @@ def format_explanation(
 
         if impact > 0:
             direction = "increases_risk"
+
         elif impact < 0:
             direction = "decreases_risk"
+
         else:
             direction = "neutral"
 
         explanations.append(
             {
                 "feature": feature,
-                "impact": round(impact, 4),
+                "impact": round(
+                    impact,
+                    4,
+                ),
                 "direction": direction,
             }
         )
 
-    # Les variables avec le plus grand impact
-    # apparaissent en premier.
     explanations.sort(
-        key=lambda item: abs(item["impact"]),
+        key=lambda item: abs(
+            item["impact"]
+        ),
         reverse=True,
     )
 
@@ -125,7 +164,7 @@ def format_explanation(
 
 
 # ============================================================
-# 5. EXPLAIN PROFILE
+# 6. EXPLAIN PROFILE
 # ============================================================
 
 def explain_profile(
@@ -133,25 +172,32 @@ def explain_profile(
     profile_df: pd.DataFrame,
 ):
     """
-    Fonction principale permettant d'expliquer
-    la prédiction d'un profil.
+    Fonction principale permettant
+    d'expliquer la prédiction d'un profil.
     """
 
+    # Vérification et normalisation
+    profile_df = validate_profile(
+        profile_df
+    )
+
+    # Calcul SHAP
     shap_values = get_shap_values(
         model,
         profile_df,
     )
 
+    # Formatage
     explanation = format_explanation(
         shap_values,
-        profile_df.columns.tolist(),
+        FEATURE_COLUMNS,
     )
 
     return explanation
 
 
 # ============================================================
-# 6. TEST
+# 7. TEST
 # ============================================================
 
 if __name__ == "__main__":
@@ -160,13 +206,22 @@ if __name__ == "__main__":
     print("CreditPulse - SHAP Explanation")
     print("=" * 60)
 
+    # --------------------------------------------------------
+    # Load model
+    # --------------------------------------------------------
+
     print("\n[1/3] Loading model...")
 
     model = load_model()
 
-    print("Model loaded successfully.")
+    print(
+        "Model loaded successfully."
+    )
 
-    # Exemple de client
+    # --------------------------------------------------------
+    # Example customer
+    # --------------------------------------------------------
+
     profile = pd.DataFrame(
         [
             {
@@ -181,14 +236,26 @@ if __name__ == "__main__":
         ]
     )
 
-    print("\n[2/3] Calculating SHAP values...")
+    # --------------------------------------------------------
+    # Calculate SHAP
+    # --------------------------------------------------------
+
+    print(
+        "\n[2/3] Calculating SHAP values..."
+    )
 
     explanation = explain_profile(
         model,
         profile,
     )
 
-    print("\n[3/3] Explanation:")
+    # --------------------------------------------------------
+    # Display
+    # --------------------------------------------------------
+
+    print(
+        "\n[3/3] Explanation:"
+    )
 
     for item in explanation:
 
@@ -198,4 +265,6 @@ if __name__ == "__main__":
             f"({item['direction']})"
         )
 
-    print("\nSHAP explanation completed.")
+    print(
+        "\nSHAP explanation completed."
+    )
