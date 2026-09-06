@@ -1,8 +1,12 @@
-/*
-CreditRequest.jsx — Page CreditRequest (Palier A.3)
-À IMPLÉMENTER : voir docs/GUIDE_COMPLET.md Palier A.3 pour le détail
-de ce que doit contenir cette page.
-*/
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { submitCreditApplication } from "../api/credit";
+
+const initial = { revenu_mensuel: "", dettes_actuelles: "", age: "", anciennete_emploi: "", nombre_credits_en_cours: "", historique_paiement: "", requested_amount: "", duration_months: "" };
 export default function CreditRequest() {
-  return null; // TODO
+  const navigate = useNavigate(); const [form, setForm] = useState(initial); const [error, setError] = useState(""); const [busy, setBusy] = useState(false); const update = (key, value) => setForm({ ...form, [key]: value });
+  const submit = async (event) => { event.preventDefault(); setBusy(true); setError(""); try { const { data } = await submitCreditApplication(Object.fromEntries(Object.entries(form).map(([key, value]) => [key, Number(value)]))); sessionStorage.setItem("creditpulse_result", JSON.stringify(data)); navigate("/result"); } catch (requestError) { setError(requestError.response?.data?.detail || "The scoring service is unavailable. Try again shortly."); } finally { setBusy(false); } };
+  return <section className="form-page"><div className="form-header"><div className="eyebrow">Step 02 / request</div><h2>What would you like to understand?</h2><p>Pair your profile with the amount and timeline you have in mind.</p></div><form className="form-card" onSubmit={submit}><div className="field-grid"><Field label="Monthly income" value={form.revenu_mensuel} onChange={(v) => update("revenu_mensuel", v)} /><Field label="Current debt" value={form.dettes_actuelles} onChange={(v) => update("dettes_actuelles", v)} /><Field label="Age" value={form.age} onChange={(v) => update("age", v)} /><Field label="Years in current job" value={form.anciennete_emploi} onChange={(v) => update("anciennete_emploi", v)} /><Field label="Open credit accounts" value={form.nombre_credits_en_cours} onChange={(v) => update("nombre_credits_en_cours", v)} /><Field label="Payment history (0 to 1)" step="0.01" value={form.historique_paiement} onChange={(v) => update("historique_paiement", v)} /><Field label="Requested amount" value={form.requested_amount} onChange={(v) => update("requested_amount", v)} /><Field label="Duration in months" value={form.duration_months} onChange={(v) => update("duration_months", v)} /></div>{error && <div className="error">{error}</div>}<div className="form-footer"><span /> <button className="button" disabled={busy}>{busy ? "Assessing..." : "Get my assessment"}</button></div></form></section>;
 }
+
+function Field({ label, value, onChange, step = "1" }) { return <div className="field"><label>{label}</label><input required type="number" min="0" step={step} value={value} onChange={(event) => onChange(event.target.value)} /></div>; }

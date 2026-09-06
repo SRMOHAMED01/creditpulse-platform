@@ -1,5 +1,11 @@
-/*
-useCreditApplication.js — Hook React Query (Palier A.3)
-À IMPLÉMENTER : useMutation() qui appelle api/credit.js submitCreditApplication,
-gère loading/error/success proprement pour la page CreditRequest.
-*/
+import { useMutation } from "@tanstack/react-query";
+import { submitCreditApplication } from "../api/credit";
+
+export default function useCreditApplication() {
+	return useMutation({
+		mutationFn: async (application) => {
+			const { data } = await submitCreditApplication(application);
+			return data;
+		},
+	});
+}

@@ -5,8 +5,8 @@ Point d'entrée de l'API FastAPI CreditPulse.
 from fastapi import FastAPI
 
 from .core.config import settings
-from .routers import credit
-
+from .models import *  # noqa: F401,F403
+from .routers import auth, credit, users
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -18,9 +18,9 @@ app = FastAPI(
 # ROUTERS
 # ============================================================
 
-app.include_router(
-    credit.router
-)
+app.include_router(auth.router)
+app.include_router(users.router)
+app.include_router(credit.router)
 
 
 # ============================================================

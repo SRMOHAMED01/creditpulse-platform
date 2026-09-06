@@ -1,4 +1,5 @@
-/*
-auth.js — Appels API liés à l'authentification (Palier A.3)
-À IMPLÉMENTER : register(data), login(data) -> POST vers /auth/register, /auth/login
-*/
+import client from "./client";
+
+export const register = (data) => client.post("/auth/register", data);
+export const login = (data) => client.post("/auth/login", data);
+export const getCurrentUser = () => client.get("/users/me");

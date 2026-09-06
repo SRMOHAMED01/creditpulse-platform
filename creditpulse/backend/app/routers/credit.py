@@ -8,7 +8,7 @@ Le router reçoit la demande, appelle le service ML
 et retourne le score ainsi que l'explication SHAP.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 
 from ..schemas.credit import (
     CreditApplicationRequest,
@@ -35,7 +35,6 @@ def apply_credit(
     Effectue le scoring d'une demande de crédit.
     """
 
-    # Transformer le modèle Pydantic en dictionnaire
     profile = {
         "revenu_mensuel": application.revenu_mensuel,
         "dettes_actuelles": application.dettes_actuelles,
@@ -49,7 +48,12 @@ def apply_credit(
         ),
     }
 
-    # Appel du moteur ML
-    result = predict_credit(profile)
+    try:
+        result = predict_credit(profile)
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
 
     return result

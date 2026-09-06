@@ -31,14 +31,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 # ============================================================
-# 3. IMPORT ML SERVICE
-# ============================================================
-
-from ml.serve import predict
-
-
-# ============================================================
-# 4. PUBLIC FUNCTION
+# 3. PUBLIC FUNCTION
 # ============================================================
 
 def predict_credit(profile: dict) -> dict:
@@ -60,5 +53,12 @@ def predict_credit(profile: dict) -> dict:
         - decision
         - explanation
     """
+    try:
+        from ml.serve import predict
+    except ModuleNotFoundError as exc:
+        raise ImportError(
+            "ML dependencies are not installed. Install the ML stack from ml/requirements.txt "
+            "before calling the credit scoring endpoint."
+        ) from exc
 
     return predict(profile)

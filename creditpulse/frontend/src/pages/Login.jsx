@@ -1,8 +1,20 @@
-/*
-Login.jsx — Page Login (Palier A.3)
-À IMPLÉMENTER : voir docs/GUIDE_COMPLET.md Palier A.3 pour le détail
-de ce que doit contenir cette page.
-*/
+import React, { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { login } from "../api/auth";
+
 export default function Login() {
-  return null; // TODO
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (event) => {
+    event.preventDefault(); setBusy(true); setError("");
+    try { const { data } = await login(form); localStorage.setItem("creditpulse_token", data.access_token); navigate(location.state?.from || "/dashboard"); }
+    catch (requestError) { setError(requestError.response?.data?.detail || "Unable to sign in. Check your credentials."); }
+    finally { setBusy(false); }
+  };
+  return <section className="form-page"><div className="form-header"><div className="eyebrow">CreditPulse / secure access</div><h1>Make the next financial move with clarity.</h1><p>Sign in to see your profile and continue an application.</p></div><form className="form-card" onSubmit={submit}><div className="field-grid"><Field label="Email" type="email" value={form.email} onChange={(value) => setForm({ ...form, email: value })} /><Field label="Password" type="password" value={form.password} onChange={(value) => setForm({ ...form, password: value })} /></div>{error && <div className="error">{error}</div>}<div className="form-footer"><p>New to CreditPulse? <Link to="/signup">Create an account</Link></p><button className="button" disabled={busy}>{busy ? "Signing in..." : "Sign in"}</button></div></form></section>;
 }
+
+function Field({ label, type, value, onChange }) { return <div className="field full"><label>{label}</label><input required type={type} value={value} onChange={(event) => onChange(event.target.value)} /></div>; }
