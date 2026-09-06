@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: stg_financial_profiles
+    description: Validated and typed financial profiles.
+    columns:
+      - name: profile_id
+        tests:
+          - not_null
+          - unique
+      - name: revenu_mensuel
+        tests:
+          - not_null
+      - name: historique_paiement
+        tests:
+          - not_null
+
+  - name: dti_ratio
+    description: Debt-to-income ratio per financial profile.
+    columns:
+      - name: profile_id
+        tests:
+          - not_null
+          - unique
+      - name: dti_ratio
+        tests:
+          - not_null
+
+  - name: score_regularite
+    description: Normalized payment regularity score per financial profile.
+    columns:
+      - name: profile_id
+        tests:
+          - not_null
+          - unique
+      - name: score_regularite
+        tests:
+          - not_null
+
+  - name: feature_store
+    description: Model-ready features joined by profile.
+    columns:
+      - name: profile_id
+        tests:
+          - not_null
+          - unique
+      - name: dti_ratio
+        tests:
+          - not_null
+      - name: score_regularite
+        tests:
+          - not_null

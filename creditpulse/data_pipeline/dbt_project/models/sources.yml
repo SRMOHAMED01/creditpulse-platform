@@ -1,0 +1,19 @@
+version: 2
+
+sources:
+  - name: public
+    schema: public
+    tables:
+      - name: financial_profiles
+        description: Raw financial profiles captured by the CreditPulse API.
+        columns:
+          - name: id
+            tests:
+              - not_null
+              - unique
+          - name: revenu_mensuel
+            tests:
+              - not_null
+          - name: dettes_actuelles
+            tests:
+              - not_null

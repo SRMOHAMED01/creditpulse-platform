@@ -1,7 +1,11 @@
-# dbt_project.yml — Configuration du projet dbt (Palier B.1)
-# À COMPLÉTER : name, version, profile (connexion PostgreSQL via ~/.dbt/profiles.yml),
-# model-paths: ["models"], et la config des sous-dossiers staging/ et features/
 name: 'creditpulse'
 version: '1.0.0'
 profile: 'creditpulse'
 model-paths: ["models"]
+
+models:
+  creditpulse:
+    staging:
+      +materialized: view
+    features:
+      +materialized: table

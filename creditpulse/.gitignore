@@ -72,6 +72,7 @@ logs/
 data_pipeline/dbt_project/target/
 data_pipeline/dbt_project/dbt_packages/
 data_pipeline/dbt_project/logs/
+data_pipeline/dbt_profiles/.user.yml
 target/
 dbt_packages/
 
