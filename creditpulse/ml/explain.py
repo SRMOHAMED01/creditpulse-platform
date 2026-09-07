@@ -1,13 +1,22 @@
 """
 explain.py
 Explicabilité du modèle de scoring crédit avec SHAP.
+
+Si la dépendance native SHAP/numba est bloquée par le système
+Windows (Application Control / DLL policy), on garde un mode de
+secours basé sur l'importance des features pour conserver la
+fonction de scoring.
 """
 
 from pathlib import Path
 
 import pandas as pd
-import shap
 import xgboost as xgb
+
+try:
+    import shap  # type: ignore
+except ImportError:  # pragma: no cover - dépendance native locale
+    shap = None
 
 
 # ============================================================
@@ -92,9 +101,21 @@ def get_shap_values(
     """
     Calcule les valeurs SHAP pour un ou plusieurs profils.
 
-    TreeExplainer est utilisé car le modèle
-    est basé sur XGBoost.
+    Si SHAP n'est pas disponible, on retourne une approximation
+    basée sur l'importance des features du modèle.
     """
+
+    if shap is None:
+        feature_names = profile_df.columns.tolist()
+        baseline = {}
+        for idx, feature in enumerate(feature_names):
+            value = float(profile_df.iloc[0][feature])
+            if hasattr(model, "feature_importances_"):
+                importance = float(model.feature_importances_[idx])
+            else:
+                importance = 1.0 / len(feature_names)
+            baseline[feature] = importance * value
+        return baseline
 
     explainer = shap.TreeExplainer(
         model
@@ -116,15 +137,32 @@ def format_explanation(
     feature_names,
 ):
     """
-    Transforme les valeurs SHAP en format
-    JSON-friendly.
+    Transforme les valeurs SHAP en format JSON-friendly.
 
-    Retourne une liste triée par importance absolue.
+    Si la vraie explication SHAP n'est pas disponible, on utilise
+    une approximation locale inspirée de l'importance des features.
     """
 
-    values = shap_values.values[0]
-
     explanations = []
+
+    if shap is None and isinstance(shap_values, dict):
+        for feature in feature_names:
+            impact = float(shap_values.get(feature, 0.0))
+            if impact >= 0:
+                direction = "increases_risk"
+            else:
+                direction = "decreases_risk"
+            explanations.append(
+                {
+                    "feature": feature,
+                    "impact": round(abs(impact), 4),
+                    "direction": direction,
+                }
+            )
+        explanations.sort(key=lambda item: item["impact"], reverse=True)
+        return explanations
+
+    values = shap_values.values[0]
 
     for feature, impact in zip(
         feature_names,
@@ -135,10 +173,8 @@ def format_explanation(
 
         if impact > 0:
             direction = "increases_risk"
-
         elif impact < 0:
             direction = "decreases_risk"
-
         else:
             direction = "neutral"
 

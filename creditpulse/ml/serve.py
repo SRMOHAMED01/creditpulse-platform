@@ -17,10 +17,16 @@ from functools import lru_cache
 
 import pandas as pd
 
-from .explain import (
-    load_model,
-    explain_profile,
-)
+try:
+    from .explain import (
+        load_model,
+        explain_profile,
+    )
+except ImportError:  # pragma: no cover - support direct script execution
+    from explain import (
+        load_model,
+        explain_profile,
+    )
 
 
 # ============================================================
