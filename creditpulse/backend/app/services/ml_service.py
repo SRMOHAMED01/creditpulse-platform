@@ -1,64 +1,31 @@
-"""
-ml_service.py
-
-Pont entre le backend FastAPI et le moteur ML.
-
-Le backend utilise la fonction predict() définie dans
-ml/serve.py au lieu de manipuler directement XGBoost
-ou SHAP.
-"""
-
+"""Boundary between the API and the optional native ML runtime."""
+import logging
 import sys
 from pathlib import Path
-
-
-# ============================================================
-# 1. FIND PROJECT ROOT
-# ============================================================
+from ..core.config import settings
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-
-
-# ============================================================
-# 2. ADD PROJECT ROOT TO PYTHON PATH
-# ============================================================
-
 if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(
-        0,
-        str(PROJECT_ROOT),
-    )
+    sys.path.insert(0, str(PROJECT_ROOT))
+logger = logging.getLogger(__name__)
 
-
-# ============================================================
-# 3. PUBLIC FUNCTION
-# ============================================================
+class ScoringUnavailable(RuntimeError):
+    """Model, dependencies, or explanation engine cannot serve requests."""
 
 def predict_credit(profile: dict) -> dict:
-    """
-    Effectue une prédiction de crédit.
-
-    Parameters
-    ----------
-    profile : dict
-        Profil financier du client.
-
-    Returns
-    -------
-    dict
-        Résultat du modèle contenant :
-
-        - score
-        - probability_default
-        - decision
-        - explanation
-    """
     try:
         from ml.serve import predict
-    except ModuleNotFoundError as exc:
-        raise ImportError(
-            "ML dependencies are not installed. Install the ML stack from ml/requirements.txt "
-            "before calling the credit scoring endpoint."
+        return predict(profile, model_path=str(settings.MODEL_PATH))
+    except (ImportError, OSError, RuntimeError, ValueError) as exc:
+        logger.exception("Scoring unavailable; check dependencies and MODEL_PATH")
+        raise ScoringUnavailable(
+            "Scoring is unavailable. Check the server model and dependency configuration."
         ) from exc
 
-    return predict(profile)
+def check_model_ready() -> None:
+    # Exercise prediction AND explanations, not just model deserialization.
+    predict_credit({
+        "revenu_mensuel": 15000, "dettes_actuelles": 3000, "age": 30,
+        "anciennete_emploi": 5, "nombre_credits_en_cours": 1,
+        "historique_paiement": 0.95,
+    })

@@ -10,7 +10,7 @@ Pipeline :
 5. Sauvegarde du modèle
 """
 
-from pathlib import Path
+from .paths import resolve_model_path
 
 import mlflow
 import mlflow.xgboost
@@ -290,13 +290,13 @@ def log_to_mlflow(model, params, metrics):
 
 def save_model(
     model,
-    path="model_registry/model.json",
+    path=None,
 ):
     """
     Sauvegarde le modèle XGBoost localement.
     """
 
-    model_path = Path(__file__).parent / path
+    model_path = resolve_model_path(path)
 
     model_path.parent.mkdir(
         parents=True,
@@ -363,7 +363,6 @@ if __name__ == "__main__":
 
     save_model(
         model,
-        "model_registry/model.json",
     )
 
     print("\nLogging experiment to MLflow...")

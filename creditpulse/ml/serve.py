@@ -17,23 +17,15 @@ from functools import lru_cache
 
 import pandas as pd
 
-try:
-    from .explain import (
-        load_model,
-        explain_profile,
-    )
-except ImportError:  # pragma: no cover - support direct script execution
-    from explain import (
-        load_model,
-        explain_profile,
-    )
+from .explain import load_model, explain_profile
+from .paths import resolve_model_path
 
 
 # ============================================================
 # CONFIGURATION
 # ============================================================
 
-MODEL_PATH = "model_registry/model.json"
+
 
 # Score minimum nécessaire pour accepter une demande
 ACCEPTANCE_THRESHOLD = 60
@@ -58,7 +50,7 @@ FEATURE_ORDER = [
 # ============================================================
 
 @lru_cache(maxsize=1)
-def get_model():
+def get_model(model_path=None):
     """
     Charge le modèle une seule fois.
 
@@ -66,7 +58,7 @@ def get_model():
     à chaque prédiction.
     """
 
-    return load_model(MODEL_PATH)
+    return load_model(resolve_model_path(model_path))
 
 
 # ============================================================
@@ -259,6 +251,7 @@ def prepare_profile(
 
 def predict(
     profile: dict,
+    model_path=None,
 ) -> dict:
     """
     Effectue une prédiction de crédit.
@@ -278,7 +271,7 @@ def predict(
     # 1. Load model
     # --------------------------------------------------------
 
-    model = get_model()
+    model = get_model(model_path)
 
     # --------------------------------------------------------
     # 2. Prepare profile

@@ -15,7 +15,7 @@ from ..schemas.credit import (
     CreditApplicationResponse,
 )
 
-from ..services.ml_service import predict_credit
+from ..services.ml_service import ScoringUnavailable, predict_credit
 
 
 router = APIRouter(
@@ -50,7 +50,7 @@ def apply_credit(
 
     try:
         result = predict_credit(profile)
-    except ImportError as exc:
+    except ScoringUnavailable as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
