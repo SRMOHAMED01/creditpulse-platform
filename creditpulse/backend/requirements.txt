@@ -1,14 +1,13 @@
-fastapi
-uvicorn[standard]
-sqlalchemy
-alembic
-psycopg2-binary
-pydantic
-pydantic-settings
-python-jose[cryptography]
-passlib[bcrypt]
-bcrypt<4
-python-multipart
-redis
-confluent-kafka
-prometheus-fastapi-instrumentator
+fastapi==0.141.1
+uvicorn[standard]==0.52.0
+sqlalchemy==2.0.52
+alembic==1.19.2
+psycopg2-binary==2.9.12
+pydantic==2.13.5
+pydantic-settings==2.15.0
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4
+bcrypt==3.2.2
+python-multipart==0.0.32
+prometheus-fastapi-instrumentator==8.1.0
+-r requirements-inference.txt

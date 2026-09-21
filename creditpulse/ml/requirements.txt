@@ -1,9 +1,8 @@
-pandas
-numpy
-scikit-learn
-xgboost
-shap
-joblib
-mlflow
-evidently
-matplotlib
+# Training and MLOps dependencies. API inference dependencies are pinned separately.
+-r ../backend/requirements-inference.txt
+scikit-learn==1.9.0
+shap==0.52.0
+joblib==1.5.3
+mlflow==3.10.1
+evidently==0.7.20
+matplotlib==3.11.1

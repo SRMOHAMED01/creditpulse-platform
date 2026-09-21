@@ -23,9 +23,9 @@ def predict_credit(profile: dict) -> dict:
         ) from exc
 
 def check_model_ready() -> None:
-    # Exercise prediction AND explanations, not just model deserialization.
-    predict_credit({
-        "revenu_mensuel": 15000, "dettes_actuelles": 3000, "age": 30,
-        "anciennete_emploi": 5, "nombre_credits_en_cours": 1,
-        "historique_paiement": 0.95,
-    })
+    try:
+        from ml.serve import get_model
+
+        get_model(str(settings.MODEL_PATH))
+    except (ImportError, OSError, RuntimeError, ValueError) as exc:
+        raise ScoringUnavailable("The configured scoring model is not ready.") from exc

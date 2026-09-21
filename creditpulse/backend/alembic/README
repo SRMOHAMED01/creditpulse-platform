@@ -1,3 +1,0 @@
-Migrations de base de données (Palier A.2).
-À initialiser avec `alembic init alembic` puis configurer alembic.ini
-pour pointer vers DATABASE_URL (voir app/core/config.py).

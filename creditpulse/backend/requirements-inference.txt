@@ -1,0 +1,4 @@
+# Only packages required by API prediction. Training/MLOps stay in ml/requirements.txt.
+numpy==2.5.2
+pandas==3.0.5
+xgboost==3.4.1

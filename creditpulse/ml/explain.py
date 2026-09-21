@@ -28,13 +28,14 @@ def validate_profile(profile_df: pd.DataFrame):
     return profile_df[FEATURE_COLUMNS]
 
 def get_shap_values(model, profile_df):
-    # Import lazily: account endpoints remain available when native ML libraries fail.
-    import shap
-    return shap.TreeExplainer(model)(profile_df)
+    """Use XGBoost's native TreeSHAP implementation for online inference."""
+    matrix = xgb.DMatrix(profile_df, feature_names=FEATURE_COLUMNS)
+    # The final contribution is the model bias; the API explains input features.
+    return model.get_booster().predict(matrix, pred_contribs=True)[0][:-1]
 
 def format_explanation(shap_values, feature_names):
     explanations = []
-    for feature, raw in zip(feature_names, shap_values.values[0]):
+    for feature, raw in zip(feature_names, shap_values):
         impact = float(raw)
         direction = "increases_risk" if impact > 0 else "decreases_risk" if impact < 0 else "neutral"
         explanations.append({"feature": feature, "impact": round(impact, 4), "direction": direction})

@@ -5,12 +5,17 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-COPY requirements.txt .
+RUN apt-get update && apt-get install --no-install-recommends -y libgomp1 && \
+    rm -rf /var/lib/apt/lists/*
 
+COPY backend/requirements.txt backend/requirements-inference.txt /app/backend/
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r /app/backend/requirements.txt
 
-COPY . .
+COPY backend /app/backend
+COPY ml /app/ml
+
+WORKDIR /app/backend
 
 EXPOSE 8000
 

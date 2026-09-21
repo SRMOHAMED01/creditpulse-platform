@@ -3,40 +3,16 @@ users.py — Routes utilisateur (Palier A.2)
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
-from ..core.security import decode_access_token
 from ..database import get_db
+from ..dependencies.auth import get_current_user
 from ..models.financial_profile import FinancialProfile
 from ..models.user import User
 from ..schemas.users import FinancialProfileCreate, FinancialProfileResponse, UserMeResponse
 
 
 router = APIRouter(prefix="/users", tags=["users"])
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-
-
-def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
-) -> User:
-    payload = decode_access_token(token)
-    if payload is None or "sub" not in payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    user = db.query(User).filter(User.id == int(payload["sub"])).first()
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-        )
-
-    return user
 
 
 @router.get("/me", response_model=UserMeResponse)

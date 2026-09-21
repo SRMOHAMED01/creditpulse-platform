@@ -8,13 +8,14 @@ Le router reçoit la demande, appelle le service ML
 et retourne le score ainsi que l'explication SHAP.
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..schemas.credit import (
     CreditApplicationRequest,
     CreditApplicationResponse,
 )
-
+from ..dependencies.auth import get_current_user
+from ..models.user import User
 from ..services.ml_service import ScoringUnavailable, predict_credit
 
 
@@ -30,9 +31,10 @@ router = APIRouter(
 )
 def apply_credit(
     application: CreditApplicationRequest,
+    current_user: User = Depends(get_current_user),
 ):
     """
-    Effectue le scoring d'une demande de crédit.
+    Effectue le scoring d'une demande de crédit authentifiée.
     """
 
     profile = {
