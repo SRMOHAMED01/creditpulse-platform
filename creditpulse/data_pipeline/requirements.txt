@@ -1,1 +1,3 @@
 dbt-postgres
+great-expectations
+psycopg2-binary
