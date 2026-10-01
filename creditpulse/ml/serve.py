@@ -204,13 +204,16 @@ def prepare_profile(
     )
 
     # --------------------------------------------------------
-    # Calculate DTI
+    # Calculate DTI (or use feature store value)
     # --------------------------------------------------------
 
-    data["dti_ratio"] = (
-        data["dettes_actuelles"]
-        / data["revenu_mensuel"]
-    )
+    if "dti_ratio" in data and data["dti_ratio"] is not None:
+        data["dti_ratio"] = float(data["dti_ratio"])
+    else:
+        data["dti_ratio"] = (
+            data["dettes_actuelles"]
+            / data["revenu_mensuel"]
+        )
 
     # --------------------------------------------------------
     # Create DataFrame
