@@ -1,27 +1,46 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCurrentUser } from "../api/auth";
 import client from "../api/client";
-
-const readLastAssessment = () => {
-  try {
-    const item = sessionStorage.getItem("creditpulse_result");
-    return item ? JSON.parse(item) : null;
-  } catch {
-    return null;
-  }
-};
+import { getCreditApplications } from "../api/credit";
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const assessment = useMemo(readLastAssessment, []);
+  const [assessments, setAssessments] = useState([]);
+  const [historyError, setHistoryError] = useState(false);
+  const [historyOffset, setHistoryOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const assessment = assessments[0];
+
+  const loadMore = async () => {
+    setHistoryBusy(true);
+    setHistoryError(false);
+    try {
+      const { data } = await getCreditApplications({ limit: 20, offset: historyOffset });
+      setAssessments((previous) => [...previous, ...data]);
+      setHistoryOffset((previous) => previous + data.length);
+      setHasMore(data.length === 20);
+    } catch {
+      setHistoryError(true);
+    } finally {
+      setHistoryBusy(false);
+    }
+  };
 
   useEffect(() => {
-    Promise.allSettled([getCurrentUser(), client.get("/users/profile")])
-      .then(([userResult, profileResult]) => {
+    let active = true;
+    Promise.allSettled([getCurrentUser(), client.get("/users/profile"), getCreditApplications({ limit: 20 })])
+      .then(([userResult, profileResult, historyResult]) => {
+        if (!active) return;
+        if (historyResult.status === "fulfilled") {
+          setAssessments(historyResult.value.data);
+          setHistoryOffset(historyResult.value.data.length);
+          setHasMore(historyResult.value.data.length === 20);
+        } else setHistoryError(true);
         if (userResult.status === "fulfilled") setUser(userResult.value.data);
         if (profileResult.status === "fulfilled") setProfile(profileResult.value.data);
         const unexpectedProfileError = profileResult.status === "rejected"
@@ -29,7 +48,8 @@ export default function Dashboard() {
         setLoadError(userResult.status === "rejected" || unexpectedProfileError);
       })
       .catch(() => setLoadError(true))
-      .finally(() => setLoading(false));
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, []);
 
   const displayName = user?.email?.split("@")[0] || "User";
@@ -44,7 +64,7 @@ export default function Dashboard() {
         <div>
           <div className="eyebrow">⚡ Live Financial Workspace</div>
           <h1>Welcome back, <span>{displayName}</span></h1>
-          <p>Monitor real-time credit scoring metrics, feature store variables, and AI explainability models.</p>
+          <p>Review your saved credit assessments, financial profile, and model explanations.</p>
         </div>
         <Link className="button" to={profile ? "/apply" : "/profile"}>
           {profile ? "+ New Assessment" : "Complete Profile"}
@@ -73,7 +93,7 @@ export default function Dashboard() {
           </div>
           <p style={{ marginTop: '16px', fontSize: '0.88rem' }}>
             {profile
-              ? "Financial features successfully synced to PostgreSQL & Feature Store."
+              ? "Your financial profile is saved and ready for an assessment."
               : "Complete your income, debt, and employment profiles to unlock scoring."}
           </p>
           <Link className="button secondary" to="/profile" style={{ marginTop: '14px', width: 'fit-content', padding: '0 16px', minHeight: '38px', fontSize: '0.82rem' }}>
@@ -123,15 +143,16 @@ export default function Dashboard() {
         <article className="form-card" style={{ padding: '28px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <h3 style={{ fontSize: '1.3rem' }}>Recent Activity & Decision History</h3>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Kafka Stream: Active</span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Saved assessments</span>
           </div>
 
-          {assessment ? (
+          {historyError && <p className="error">Could not load assessment history. <button className="button secondary" onClick={loadMore} disabled={loading || historyBusy}>Retry</button></p>}
+          {loading ? <p role="status">Loading assessment history...</p> : assessments.length ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+              {assessments.map((assessment) => <Link key={assessment.id} to={`/result/${assessment.id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Credit Risk Assessment</div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Processed via XGBoost + SHAP</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Assessment #{assessment.id}</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{new Date(assessment.created_at).toLocaleString()} · ${assessment.requested_amount.toLocaleString()} · {assessment.duration_months} months</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div className={`status-pill ${assessment.decision === 'accepté' ? 'complete' : 'pending'}`}>
@@ -139,10 +160,11 @@ export default function Dashboard() {
                   </div>
                   <div style={{ fontSize: '0.78rem', marginTop: '4px', color: 'var(--text-dim)' }}>Score: {assessment.score ?? '—'}/100</div>
                 </div>
-              </div>
+              </Link>)}
+              {hasMore && <button className="button secondary" onClick={loadMore} disabled={historyBusy}>{historyBusy ? "Loading..." : "Load more"}</button>}
             </div>
           ) : (
-            <p style={{ color: 'var(--text-muted)' }}>No credit assessment records found. Run your first assessment to populate history.</p>
+            !historyError && <p style={{ color: 'var(--text-muted)' }}>No credit assessment records found. Run your first assessment to populate history.</p>
           )}
 
           <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -160,7 +182,7 @@ export default function Dashboard() {
           <p style={{ fontSize: '0.88rem', lineHeight: '1.6' }}>
             CreditPulse leverages SHAP (Shapley Additive exPlanations) to break down every score into clear feature contributions (income impact, DTI ratio impact, payment history).
           </p>
-          <Link className="button" to={assessment ? "/result" : "/apply"} style={{ marginTop: '20px', width: '100%' }}>
+          <Link className="button" to={assessment ? `/result/${assessment.id}` : "/apply"} style={{ marginTop: '20px', width: '100%' }}>
             {assessment ? "View SHAP Breakdown →" : "Start First Assessment"}
           </Link>
         </article>

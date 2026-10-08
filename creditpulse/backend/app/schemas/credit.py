@@ -2,7 +2,8 @@
 Schémas Pydantic pour les demandes de crédit.
 """
 
-from pydantic import BaseModel, Field
+from datetime import datetime, timezone
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 class CreditApplicationRequest(BaseModel):
@@ -36,3 +37,21 @@ class CreditApplicationResponse(BaseModel):
     probability_default: float
     decision: str
     explanation: list[dict]
+
+
+class SavedCreditApplicationResponse(CreditApplicationResponse):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    requested_amount: float
+    duration_months: int
+    created_at: datetime
+    input_snapshot: dict | None = None
+    explanation: list[dict] | None = None
+    model_version: str | None = None
+
+    @field_validator("created_at")
+    @classmethod
+    def timestamp_with_timezone(cls, value):
+        # Stored timestamps (including legacy rows) use UTC.
+        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value

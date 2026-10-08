@@ -18,6 +18,7 @@ function ProtectedLayout() {
         <Route path="/profile" element={<ProfileForm />} />
         <Route path="/apply" element={<CreditRequest />} />
         <Route path="/result" element={<Result />} />
+        <Route path="/result/:applicationId" element={<Result />} />
       </Routes></main>
     </ProtectedRoute>
   );

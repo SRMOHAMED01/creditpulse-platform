@@ -60,6 +60,23 @@ may be absolute or relative to this project directory. `CORS_ORIGINS` must be a
 JSON array of explicit frontend origins. The application refuses short or
 placeholder secrets and wildcard CORS configuration.
 
+## Saved assessments
+
+`POST /credit/apply` scores and saves an assessment for the authenticated user.
+The response includes its ID, original financial inputs, loan amount and duration,
+score, default probability, decision, SHAP explanation, UTC timestamp, and model
+version (SHA-256 of the loaded model). Model outputs remain synthetic demonstrations;
+loan amount and duration are recorded but do not affect the current borrower-risk model.
+
+`GET /credit/applications?limit=20&offset=0` lists the current user's assessments,
+newest first (maximum page size 100). `GET /credit/applications/{id}` retrieves
+one assessment; missing IDs and another user's IDs both return 404. The dashboard
+loads saved history, and `/result/{id}` opens a durable result after login.
+
+Run `alembic upgrade head` before starting an existing installation (Compose's
+migration service does this automatically). Older assessments retain their results;
+their unknown input snapshots, explanations, and model versions remain null.
+
 ## Health endpoints
 
 - `GET /health` is a liveness check: it confirms the API process is running.

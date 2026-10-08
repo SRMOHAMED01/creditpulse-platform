@@ -21,12 +21,12 @@ export default function ShapChart({ values = [] }) {
             
             <div className="shap-bar-track">
               <div
-                className={`shap-bar-fill ${isPositive ? 'positive' : 'negative'}`}
+                className={`shap-bar-fill ${isPositive ? 'negative' : 'positive'}`}
                 style={{ width: `${widthPct}%` }}
               />
             </div>
 
-            <span style={{ fontSize: '0.85rem', fontWeight: 700, textAlign: 'right', color: isPositive ? '#34D399' : '#F87171' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 700, textAlign: 'right', color: isPositive ? '#F87171' : '#34D399' }}>
               {impact > 0 ? '+' : ''}{impact.toFixed(3)}
             </span>
           </div>

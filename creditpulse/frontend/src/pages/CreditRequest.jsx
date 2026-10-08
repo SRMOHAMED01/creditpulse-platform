@@ -36,8 +36,7 @@ export default function CreditRequest() {
         Object.entries(form).map(([key, value]) => [key, Number(value)])
       );
       const { data } = await submitCreditApplication(payload);
-      sessionStorage.setItem("creditpulse_result", JSON.stringify(data));
-      navigate("/result");
+      navigate(`/result/${data.id}`);
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, "The scoring service is unavailable. Try again shortly."));
     } finally {

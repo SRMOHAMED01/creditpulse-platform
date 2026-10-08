@@ -14,6 +14,7 @@ Responsabilités :
 """
 
 from functools import lru_cache
+from hashlib import sha256
 
 import pandas as pd
 
@@ -59,6 +60,12 @@ def get_model(model_path=None):
     """
 
     return load_model(resolve_model_path(model_path))
+
+
+@lru_cache(maxsize=1)
+def get_model_version(model_path=None):
+    # Hash the loaded model itself so replacing a file cannot mislabel cached predictions.
+    return sha256(bytes(get_model(model_path).get_booster().save_raw(raw_format="json"))).hexdigest()
 
 
 # ============================================================
@@ -328,6 +335,7 @@ def predict(
     # --------------------------------------------------------
 
     return {
+        "model_version": get_model_version(model_path),
         "score": score,
         "probability_default": round(
             float(probability_default),
