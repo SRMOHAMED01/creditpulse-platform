@@ -86,10 +86,46 @@ their unknown input snapshots, explanations, and model versions remain null.
 ## Verification
 
 ```powershell
-backend/.venv/Scripts/python -m pytest -q -p no:cacheprovider
+backend/.venv/Scripts/python -m pytest backend/tests -q -p no:cacheprovider
 cd frontend
 npm run build
 ```
+
+Genuine native inference checks (no scoring mocks):
+
+Serving loads the XGBoost Booster directly, so optional scikit-learn and plotting
+imports are not required for predictions or native TreeSHAP explanations.
+
+```powershell
+backend/.venv/Scripts/python -m pytest verification -q -p no:cacheprovider
+```
+
+With the backend ready on port 8000, browser checks run on desktop and mobile:
+
+```powershell
+cd frontend
+npm ci
+npx playwright install chromium
+npm run test:e2e
+```
+
+The full browser check creates unique demonstration accounts, saves a profile,
+verifies the assessment form uses it, requests a genuine prediction, reloads
+the saved result, signs out, and reopens history in a fresh browser session.
+It also checks that a different user cannot read the assessment. Run against a
+development/test database. For an already running frontend, set
+`E2E_EXTERNAL_SERVER=1`; `E2E_BASE_URL` and `E2E_API_URL` override the URLs.
+
+GitHub discovers the workflow at the repository root's `.github/workflows/ci.yml`.
+It runs backend and migration tests, genuine inference/TreeSHAP and complete API checks, a frontend
+build, and browser checks against an isolated Docker Compose PostgreSQL stack.
+Container readiness now includes both migrated database tables and model loading.
+Browser profile-loading checks mock the profile API only; the complete assessment
+flow uses the live API and native model.
+
+The complete API verification uses a newly migrated temporary SQLite database;
+the CI browser flow verifies PostgreSQL through Compose. CI must run on GitHub
+before its full Docker/browser result can be confirmed.
 
 The backend dependency groups are intentionally separate:
 

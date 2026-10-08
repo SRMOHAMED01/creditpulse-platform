@@ -80,7 +80,7 @@ export default function Result() {
           {result.input_snapshot && <details style={{ marginTop: '20px' }}><summary>Financial inputs used</summary><dl>{Object.entries(result.input_snapshot).map(([key, value]) => <React.Fragment key={key}><dt>{key.replaceAll('_', ' ')}</dt><dd>{value}</dd></React.Fragment>)}</dl></details>}
           {result.model_version && <details style={{ marginTop: '16px' }}><summary>Model version</summary><p style={{ overflowWrap: 'anywhere' }}>{result.model_version}</p></details>}
 
-          <div style={{ marginTop: '28px', display: 'flex', gap: '14px' }}>
+          <div className="result-actions" style={{ marginTop: '28px', display: 'flex', gap: '14px' }}>
             <Link className="button" to="/apply">Run Another Assessment</Link>
             <Link className="button secondary" to="/dashboard">Back to Dashboard</Link>
           </div>

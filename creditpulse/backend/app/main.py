@@ -57,6 +57,9 @@ def readiness_check():
         with engine.connect() as connection:
             for table in ("users", "financial_profiles", "credit_applications"):
                 connection.execute(text(f"SELECT 1 FROM {table} LIMIT 0"))
+            connection.execute(text(
+                "SELECT input_snapshot, explanation, model_version FROM credit_applications LIMIT 0"
+            ))
     except SQLAlchemyError:
         logging.getLogger(__name__).exception("Database readiness failed")
         checks["database"] = "unavailable"

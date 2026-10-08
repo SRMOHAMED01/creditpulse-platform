@@ -139,7 +139,7 @@ export default function Dashboard() {
       </section>
 
       {/* Lower Section: Recommendations & History */}
-      <section style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '20px', marginTop: '24px' }}>
+      <section className="dashboard-details">
         <article className="form-card" style={{ padding: '28px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <h3 style={{ fontSize: '1.3rem' }}>Recent Activity & Decision History</h3>

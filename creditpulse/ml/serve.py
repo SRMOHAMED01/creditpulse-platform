@@ -17,6 +17,7 @@ from functools import lru_cache
 from hashlib import sha256
 
 import pandas as pd
+import xgboost as xgb
 
 from .explain import load_model, explain_profile
 from .paths import resolve_model_path
@@ -65,7 +66,7 @@ def get_model(model_path=None):
 @lru_cache(maxsize=1)
 def get_model_version(model_path=None):
     # Hash the loaded model itself so replacing a file cannot mislabel cached predictions.
-    return sha256(bytes(get_model(model_path).get_booster().save_raw(raw_format="json"))).hexdigest()
+    return sha256(bytes(get_model(model_path).save_raw(raw_format="json"))).hexdigest()
 
 
 # ============================================================
@@ -295,9 +296,9 @@ def predict(
     # 3. Default probability
     # --------------------------------------------------------
 
-    probability_default = model.predict_proba(
-        profile_df
-    )[0][1]
+    probability_default = model.predict(
+        xgb.DMatrix(profile_df, feature_names=list(profile_df.columns))
+    )[0]
 
     # --------------------------------------------------------
     # 4. Credit score

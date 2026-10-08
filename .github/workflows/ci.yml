@@ -1,0 +1,81 @@
+name: CreditPulse checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: creditpulse
+    env:
+      SECRET_KEY: ci-only-creditpulse-secret-at-least-32-characters
+      DATABASE_URL: sqlite:///./ci-tests.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: creditpulse/backend/requirements*.txt
+      - run: python -m pip install -r backend/requirements-dev.txt
+      - name: API, privacy, and migration tests
+        run: python -m pytest backend/tests -q -p no:cacheprovider
+      - name: Genuine model and TreeSHAP tests
+        run: python -m pytest verification -q -p no:cacheprovider
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: creditpulse
+    env:
+      POSTGRES_USER: creditpulse_ci
+      POSTGRES_PASSWORD: isolated-ci-database-password
+      POSTGRES_DB: creditpulse_ci
+      SECRET_KEY: ci-only-creditpulse-secret-at-least-32-characters
+      E2E_EXTERNAL_SERVER: '1'
+      E2E_BASE_URL: http://localhost:5173
+      E2E_API_URL: http://localhost:8000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: creditpulse/frontend/package-lock.json
+      - run: npm ci
+        working-directory: creditpulse/frontend
+      - run: npm run build
+        working-directory: creditpulse/frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: creditpulse/frontend
+      - name: Build and start PostgreSQL, migrations, model API, and frontend
+        run: docker compose -p creditpulse-ci up --build -d --wait --wait-timeout 180
+      - name: Browser flow against genuine inference
+        run: npm run test:e2e
+        working-directory: creditpulse/frontend
+      - name: Container diagnostics
+        if: failure()
+        run: docker compose -p creditpulse-ci logs --no-color
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure-report
+          path: |
+            creditpulse/frontend/playwright-report
+            creditpulse/frontend/test-results
+          retention-days: 7
+      - name: Remove isolated CI stack
+        if: always()
+        run: docker compose -p creditpulse-ci down -v

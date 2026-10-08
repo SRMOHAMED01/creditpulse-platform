@@ -12,12 +12,13 @@ def load_model(path=None):
     model_path = resolve_model_path(path)
     if not model_path.is_file():
         raise FileNotFoundError(f"Model not found: {model_path}. Run python -m ml.train or configure MODEL_PATH.")
-    model = xgb.XGBClassifier()
+    # Serving needs only the native runtime, not optional sklearn/plotting imports.
+    model = xgb.Booster()
     try:
         model.load_model(str(model_path))
     except (xgb.core.XGBoostError, ValueError) as exc:
         raise RuntimeError(f"Cannot load XGBoost model: {model_path}") from exc
-    if model.get_booster().feature_names != FEATURE_COLUMNS:
+    if model.feature_names != FEATURE_COLUMNS:
         raise ValueError("Model feature names/order do not match CreditPulse. Train a compatible model.")
     return model
 
@@ -31,7 +32,7 @@ def get_shap_values(model, profile_df):
     """Use XGBoost's native TreeSHAP implementation for online inference."""
     matrix = xgb.DMatrix(profile_df, feature_names=FEATURE_COLUMNS)
     # The final contribution is the model bias; the API explains input features.
-    return model.get_booster().predict(matrix, pred_contribs=True)[0][:-1]
+    return model.predict(matrix, pred_contribs=True)[0][:-1]
 
 def format_explanation(shap_values, feature_names):
     explanations = []

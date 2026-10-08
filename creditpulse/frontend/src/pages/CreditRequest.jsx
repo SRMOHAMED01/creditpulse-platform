@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { submitCreditApplication } from "../api/credit";
 import { getApiErrorMessage } from "../api/errors";
+import client from "../api/client";
 
 const initial = {
   revenu_mensuel: "4500",
@@ -19,6 +20,24 @@ export default function CreditRequest() {
   const [form, setForm] = useState(initial);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [profileError, setProfileError] = useState(false);
+  const [profileAttempt, setProfileAttempt] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    setLoadingProfile(true);
+    setProfileError(false);
+    client.get('/users/profile').then(({ data }) => {
+      if (active) setForm((previous) => ({
+        ...previous,
+        ...Object.fromEntries(Object.keys(initial).filter((key) => key in data).map((key) => [key, String(data[key])])),
+      }));
+    }).catch((failure) => {
+      if (active && failure.response?.status !== 404) setProfileError(true);
+    }).finally(() => { if (active) setLoadingProfile(false); });
+    return () => { active = false; };
+  }, [profileAttempt]);
 
   const update = (key, value) => setForm({ ...form, [key]: value });
 
@@ -52,21 +71,25 @@ export default function CreditRequest() {
         <p>Adjust your financial parameters to simulate instant ML credit risk scoring.</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '24px' }}>
+      <div className="assessment-layout">
         <form className="form-card" onSubmit={submit}>
+          {loadingProfile && <p role="status">Loading your saved financial profile...</p>}
+          {profileError && <p className="error">Could not load your saved profile. <button type="button" className="button secondary" onClick={() => setProfileAttempt((value) => value + 1)}>Retry</button></p>}
+          <fieldset disabled={loadingProfile || profileError || busy} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             
             {/* Income Slider */}
             <div className="range-slider-field">
               <div className="range-slider-header">
-                <span>Monthly Income ($)</span>
+                <label htmlFor="assessment-income">Monthly Income ($)</label>
                 <span className="range-slider-value">${Number(form.revenu_mensuel).toLocaleString()}</span>
               </div>
               <input
+                id="assessment-income"
                 type="range"
-                min="1000"
-                max="25000"
-                step="250"
+                min="1"
+                max={Math.max(25000, Number(form.revenu_mensuel) || 0)}
+                step="0.01"
                 value={form.revenu_mensuel}
                 onChange={(e) => update("revenu_mensuel", e.target.value)}
               />
@@ -75,14 +98,15 @@ export default function CreditRequest() {
             {/* Debt Slider */}
             <div className="range-slider-field">
               <div className="range-slider-header">
-                <span>Current Debt ($)</span>
+                <label htmlFor="assessment-debt">Current Debt ($)</label>
                 <span className="range-slider-value">${Number(form.dettes_actuelles).toLocaleString()}</span>
               </div>
               <input
+                id="assessment-debt"
                 type="range"
                 min="0"
-                max="15000"
-                step="100"
+                max={Math.max(15000, Number(form.dettes_actuelles) || 0)}
+                step="0.01"
                 value={form.dettes_actuelles}
                 onChange={(e) => update("dettes_actuelles", e.target.value)}
               />
@@ -91,43 +115,44 @@ export default function CreditRequest() {
             {/* Inputs Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div className="field">
-                <label>Age</label>
-                <input type="number" min="18" max="100" value={form.age} onChange={(e) => update("age", e.target.value)} required />
+                <label htmlFor="assessment-age">Age</label>
+                <input id="assessment-age" type="number" min="19" max="100" value={form.age} onChange={(e) => update("age", e.target.value)} required />
               </div>
               <div className="field">
-                <label>Employment Seniority (Years)</label>
-                <input type="number" min="0" max="50" value={form.anciennete_emploi} onChange={(e) => update("anciennete_emploi", e.target.value)} required />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div className="field">
-                <label>Active Credit Lines</label>
-                <input type="number" min="0" max="20" value={form.nombre_credits_en_cours} onChange={(e) => update("nombre_credits_en_cours", e.target.value)} required />
-              </div>
-              <div className="field">
-                <label>Payment History (0.0 to 1.0)</label>
-                <input type="number" step="0.01" min="0" max="1" value={form.historique_paiement} onChange={(e) => update("historique_paiement", e.target.value)} required />
+                <label htmlFor="assessment-employment">Employment Seniority (Years)</label>
+                <input id="assessment-employment" type="number" min="0" step="0.01" value={form.anciennete_emploi} onChange={(e) => update("anciennete_emploi", e.target.value)} required />
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div className="field">
-                <label>Requested Amount ($)</label>
-                <input type="number" min="500" value={form.requested_amount} onChange={(e) => update("requested_amount", e.target.value)} required />
+                <label htmlFor="assessment-credits">Active Credit Lines</label>
+                <input id="assessment-credits" type="number" min="0" value={form.nombre_credits_en_cours} onChange={(e) => update("nombre_credits_en_cours", e.target.value)} required />
               </div>
               <div className="field">
-                <label>Duration (Months)</label>
-                <input type="number" min="6" max="120" value={form.duration_months} onChange={(e) => update("duration_months", e.target.value)} required />
+                <label htmlFor="assessment-payment-history">Payment History (0.0 to 1.0)</label>
+                <input id="assessment-payment-history" type="number" step="0.01" min="0" max="1" value={form.historique_paiement} onChange={(e) => update("historique_paiement", e.target.value)} required />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div className="field">
+                <label htmlFor="assessment-amount">Requested Amount ($)</label>
+                <input id="assessment-amount" type="number" min="0.01" step="0.01" value={form.requested_amount} onChange={(e) => update("requested_amount", e.target.value)} required />
+              </div>
+              <div className="field">
+                <label htmlFor="assessment-duration">Duration (Months)</label>
+                <input id="assessment-duration" type="number" min="1" max="360" value={form.duration_months} onChange={(e) => update("duration_months", e.target.value)} required />
               </div>
             </div>
 
           </div>
+          </fieldset>
 
           {error && <div className="error">{error}</div>}
 
           <div style={{ marginTop: '28px', textAlign: 'right' }}>
-            <button className="button" type="submit" disabled={busy} style={{ width: '100%', minHeight: '52px' }}>
+            <button className="button" type="submit" disabled={busy || loadingProfile || profileError} style={{ width: '100%', minHeight: '52px' }}>
               {busy ? "Evaluating ML Model..." : "Run Risk Evaluation →"}
             </button>
           </div>
