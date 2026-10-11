@@ -2,18 +2,23 @@
 Point d'entrée de l'API FastAPI CreditPulse.
 """
 
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
-import logging
 
 from .core.config import settings
-from .models import *  # noqa: F401,F403
-from .routers import auth, credit, users
 from .database import engine
-from .services.ml_service import check_model_ready, ScoringUnavailable
+from .logging import setup_logging
+from .models import *  # noqa: F401,F403
+from .routers import auth, credit, feature_store, users
+from .services.ml_service import ScoringUnavailable, check_model_ready
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -24,6 +29,18 @@ app.add_middleware(
     allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"],
 )
 
+# ============================================================
+# PROMETHEUS INSTRUMENTATION (Palier E)
+# ============================================================
+
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+
+    Instrumentator().instrument(app).expose(app)
+    logger.info("Prometheus metrics enabled at /metrics")
+except ImportError:
+    logger.warning("prometheus-fastapi-instrumentator not installed; /metrics disabled")
+
 
 # ============================================================
 # ROUTERS
@@ -32,6 +49,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(credit.router)
+app.include_router(feature_store.router)
 
 
 # ============================================================

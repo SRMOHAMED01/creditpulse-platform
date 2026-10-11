@@ -2,9 +2,10 @@
 credit_application.py — Modèle CreditApplication
 """
 
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, JSON, Index
+from datetime import UTC, datetime
+
+from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
-from datetime import datetime, timezone
 
 from ..database import Base
 
@@ -23,7 +24,7 @@ class CreditApplication(Base):
     input_snapshot = Column(JSON, nullable=True)
     explanation = Column(JSON, nullable=True)
     model_version = Column(String(64), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     # Relations
     user = relationship("User", back_populates="credit_applications")

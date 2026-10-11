@@ -3,12 +3,11 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.orm import Session
-
 from app.core.config import settings
 from app.models.credit_application import CreditApplication
 from app.schemas.credit import SavedCreditApplicationResponse
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.orm import Session
 
 
 def test_history_migration_preserves_legacy_results(tmp_path, monkeypatch):

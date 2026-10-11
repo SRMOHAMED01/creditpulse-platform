@@ -2,6 +2,7 @@
 import logging
 import sys
 from pathlib import Path
+
 from ..core.config import settings
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]

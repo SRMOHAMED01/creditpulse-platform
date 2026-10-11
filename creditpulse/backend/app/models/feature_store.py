@@ -2,8 +2,10 @@
 feature_store.py — Modèle FeatureStore (Table dbt)
 """
 
-from sqlalchemy import Column, Integer, Float, DateTime
+from sqlalchemy import Column, DateTime, Float, Integer
+
 from ..database import Base
+
 
 class FeatureStore(Base):
     __tablename__ = "feature_store"

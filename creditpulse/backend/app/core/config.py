@@ -1,6 +1,7 @@
 """Validated configuration shared by local commands and containers."""
 from functools import lru_cache
 from pathlib import Path
+
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
@@ -47,7 +48,7 @@ class Settings(BaseSettings):
             self.MODEL_PATH = PROJECT_ROOT / self.MODEL_PATH
         return self
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     return Settings()
 

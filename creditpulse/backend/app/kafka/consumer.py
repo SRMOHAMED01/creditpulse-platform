@@ -8,6 +8,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+
 from confluent_kafka import Consumer, KafkaError
 
 # Ensure project root is in sys.path

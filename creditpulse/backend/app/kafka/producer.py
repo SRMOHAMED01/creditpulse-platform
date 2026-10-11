@@ -5,6 +5,7 @@ producer.py — Producer Kafka (Palier C.1)
 import json
 import logging
 import os
+
 from confluent_kafka import Producer
 
 logger = logging.getLogger(__name__)

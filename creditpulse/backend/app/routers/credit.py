@@ -10,17 +10,16 @@ et retourne le score ainsi que l'explication SHAP.
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-from ..database import get_db
-from ..models.credit_application import CreditApplication
 
+from ..database import get_db
+from ..dependencies.auth import get_current_user
+from ..models.credit_application import CreditApplication
+from ..models.user import User
 from ..schemas.credit import (
     CreditApplicationRequest,
     SavedCreditApplicationResponse,
 )
-from ..dependencies.auth import get_current_user
-from ..models.user import User
 from ..services.ml_service import ScoringUnavailable, predict_credit
-
 
 router = APIRouter(
     prefix="/credit",

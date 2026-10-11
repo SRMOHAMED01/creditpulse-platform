@@ -11,7 +11,6 @@ from ..models.financial_profile import FinancialProfile
 from ..models.user import User
 from ..schemas.users import FinancialProfileCreate, FinancialProfileResponse, UserMeResponse
 
-
 router = APIRouter(prefix="/users", tags=["users"])
 
 

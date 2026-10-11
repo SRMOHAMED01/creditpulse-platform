@@ -2,11 +2,10 @@
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
-
 from app.main import app
 from app.routers import credit
 from app.services.ml_service import ScoringUnavailable
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 APPLICATION = {

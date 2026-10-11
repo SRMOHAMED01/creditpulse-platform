@@ -2,8 +2,9 @@
 Schémas Pydantic pour les demandes de crédit.
 """
 
-from datetime import datetime, timezone
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from datetime import UTC, datetime
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class CreditApplicationRequest(BaseModel):
@@ -54,4 +55,4 @@ class SavedCreditApplicationResponse(CreditApplicationResponse):
     @classmethod
     def timestamp_with_timezone(cls, value):
         # Stored timestamps (including legacy rows) use UTC.
-        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value

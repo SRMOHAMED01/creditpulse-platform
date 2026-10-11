@@ -10,7 +10,6 @@ from ..database import get_db
 from ..models.user import User
 from ..schemas.auth import Token, UserCreate, UserLogin
 
-
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
