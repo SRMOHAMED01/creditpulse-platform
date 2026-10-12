@@ -13,35 +13,40 @@ logger = logging.getLogger(__name__)
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
 KAFKA_TOPIC_REQUESTS = os.getenv("KAFKA_TOPIC_REQUESTS", "credit-requests")
 
-_producer = None
+_producer: Producer | None = None
 
-def get_kafka_producer():
+
+def get_kafka_producer() -> Producer:
     global _producer
     if _producer is None:
-        conf = {'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS}
+        conf: dict[str, str] = {"bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS}
         try:
             _producer = Producer(conf)
-        except Exception as e:
-            logger.error(f"Failed to initialize Kafka Producer: {e}")
-            raise e
+        except Exception:
+            logger.exception("Failed to initialize Kafka Producer")
+            raise
     return _producer
+
 
 def delivery_report(err, msg):
     if err is not None:
-        logger.error(f"Message delivery failed: {err}")
+        logger.error("Message delivery failed: %s", err)
     else:
-        logger.info(f"Message delivered to {msg.topic()} [{msg.partition()}]")
+        logger.info("Message delivered to %s [%d]", msg.topic(), msg.partition())
 
-def publish_credit_request(application_id: int, profile: dict):
+
+def publish_credit_request(application_id: int, user_id: int, profile: dict):
+    """Publish a credit scoring request to Kafka."""
     producer = get_kafka_producer()
     payload = {
         "application_id": application_id,
-        "profile": profile
+        "user_id": user_id,
+        "profile": profile,
     }
     producer.produce(
         KAFKA_TOPIC_REQUESTS,
         key=str(application_id),
         value=json.dumps(payload),
-        callback=delivery_report
+        callback=delivery_report,
     )
     producer.flush()

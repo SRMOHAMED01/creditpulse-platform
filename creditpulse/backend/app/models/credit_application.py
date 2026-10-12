@@ -18,13 +18,15 @@ class CreditApplication(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     requested_amount = Column(Float, nullable=False)
     duration_months = Column(Integer, nullable=False)
-    score = Column(Integer, nullable=False)
-    probability_default = Column(Float, nullable=False)
-    decision = Column(String, nullable=False)  # "accepté" ou "refusé"
+    score = Column(Integer, nullable=True)
+    probability_default = Column(Float, nullable=True)
+    decision = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="completed")
     input_snapshot = Column(JSON, nullable=True)
     explanation = Column(JSON, nullable=True)
     model_version = Column(String(64), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    scored_at = Column(DateTime, nullable=True)
 
     # Relations
     user = relationship("User", back_populates="credit_applications")

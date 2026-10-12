@@ -40,7 +40,7 @@ class CreditApplicationResponse(BaseModel):
     explanation: list[dict]
 
 
-class SavedCreditApplicationResponse(CreditApplicationResponse):
+class SavedCreditApplicationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -50,6 +50,10 @@ class SavedCreditApplicationResponse(CreditApplicationResponse):
     input_snapshot: dict | None = None
     explanation: list[dict] | None = None
     model_version: str | None = None
+    status: str = "completed"
+    score: int | None = None
+    probability_default: float | None = None
+    decision: str | None = None
 
     @field_validator("created_at")
     @classmethod

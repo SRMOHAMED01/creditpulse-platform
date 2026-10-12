@@ -10,4 +10,5 @@ passlib[bcrypt]==1.7.4
 bcrypt==3.2.2
 python-multipart==0.0.32
 prometheus-fastapi-instrumentator==8.1.0
+confluent-kafka==2.10.1
 -r requirements-inference.txt
