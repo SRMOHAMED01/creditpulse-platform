@@ -93,18 +93,40 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_INIT_MIN_IDLE: 1
     ports:
       - "9092:9092"
-      - "9093:9093"
     healthcheck:
-      test: ["CMD", "kafka-broker-api-bridge", "health", "check", "--bootstrap-server", "kafka:9092"]
+      test: ["CMD", "bash", "-c", "echo 'health' | nc kafka 9092"]
       interval: 10s
       timeout: 10s
       retries: 5
+
+  # ============================================================
+  # Kafka Consumer — async credit scoring (Palier C.2)
+  # ============================================================
+
+  consumer:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["python", "-m", "app.kafka.consumer"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY}
+      MODEL_PATH: /app/ml/model_registry/model.json
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ./backend:/app/backend
+      - ./ml:/app/ml
+    restart: unless-stopped
 
   # ============================================================
   # Redis (cache / event store)
@@ -134,9 +156,15 @@ services:
     volumes:
       - ./data_pipeline/dags:/usr/local/airflow/dags
       - ./data_pipeline/dbt_project:/usr/local/airflow/dbt_project
+      - ./data_pipeline/dbt_profiles:/usr/local/airflow/dbt_profiles
+      - ./data_pipeline/great_expectations:/usr/local/airflow/great_expectations
+      - ./data_pipeline/scripts:/usr/local/airflow/scripts
+      - ./data_pipeline/requirements.txt:/usr/local/airflow/requirements.txt
     environment:
       AIRFLOW__CORE__EXECUTOR: SequentialExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      _PIP_ADDITIONAL_REQUIREMENTS: ""
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
       interval: 30s

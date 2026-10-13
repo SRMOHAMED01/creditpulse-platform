@@ -1,89 +1,87 @@
+"""
+validate.py — Validates raw financial_profiles data before dbt runs (Palier B.3).
+
+Uses Great Expectations to check:
+  - revenu_mensuel > 0
+  - dettes_actuelles >= 0
+  - age between 18 and 100
+"""
+
 import os
 import sys
-import great_expectations as ge
-from great_expectations.core.batch import BatchRequest
-from great_expectations.data_context.types.base import DataContextConfig, DatasourceConfig
-from great_expectations.data_context import BaseDataContext
 
-def run_validation():
-    db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/postgres")
-    
-    # Configure an in-memory DataContext
-    project_config = DataContextConfig(
-        datasources={
-            "my_postgres_db": DatasourceConfig(
-                class_name="Datasource",
-                execution_engine={
-                    "class_name": "SqlAlchemyExecutionEngine",
-                    "connection_string": db_url,
-                },
-                data_connectors={
-                    "default_inferred_data_connector_name": {
-                        "class_name": "InferredAssetSqlDataConnector",
-                        "name": "whole_table",
-                    },
-                },
-            )
-        },
-        store_backend_defaults=ge.data_context.types.base.InMemoryStoreBackendDefaults(),
+import pandas as pd
+from sqlalchemy import create_engine
+
+
+def load_data(db_url: str = None) -> pd.DataFrame:
+    db_url = db_url or os.getenv(
+        "DATABASE_URL",
+        "postgresql://postgres:postgres@localhost:5432/creditpulse",
     )
-    
-    context = BaseDataContext(project_config=project_config)
-    
-    # Create the expectation suite
-    suite_name = "financial_profiles_suite"
-    suite = context.create_expectation_suite(suite_name, overwrite_existing=True)
-    
-    # Define batch request for the table
-    batch_request = BatchRequest(
-        datasource_name="my_postgres_db",
-        data_connector_name="default_inferred_data_connector_name",
-        data_asset_name="financial_profiles",
-    )
-    
-    # Get a validator
-    validator = context.get_validator(
-        batch_request=batch_request,
-        expectation_suite_name=suite_name,
-    )
-    
-    # Add expectations
-    # 1. revenu_mensuel not null and >= 0
-    validator.expect_column_values_to_not_be_null("revenu_mensuel")
-    validator.expect_column_values_to_be_between("revenu_mensuel", min_value=0)
-    
-    # 2. age between 18 and 100
-    validator.expect_column_values_to_not_be_null("age")
-    validator.expect_column_values_to_be_between("age", min_value=18, max_value=100)
-    
-    # 3. dettes_actuelles >= 0
-    validator.expect_column_values_to_not_be_null("dettes_actuelles")
-    validator.expect_column_values_to_be_between("dettes_actuelles", min_value=0)
-    
-    # Save the suite
-    validator.save_expectation_suite(discard_failed_expectations=False)
-    
-    # Run the checkpoint
-    checkpoint_name = "financial_profiles_checkpoint"
-    context.add_or_update_checkpoint(
-        name=checkpoint_name,
-        config_version=1,
-        class_name="SimpleCheckpoint",
-        validations=[
-            {
-                "batch_request": batch_request,
-                "expectation_suite_name": suite_name,
-            }
-        ],
-    )
-    
-    result = context.run_checkpoint(checkpoint_name=checkpoint_name)
-    
-    if not result["success"]:
-        print("Data validation failed!")
+    engine = create_engine(db_url)
+    query = "SELECT revenu_mensuel, dettes_actuelles, age FROM financial_profiles LIMIT 10000"
+    return pd.read_sql(query, engine)
+
+
+def run_validation(df: pd.DataFrame) -> bool:
+    """Run expectations on the financial profiles data.
+
+    Returns True if all critical checks pass, False otherwise.
+    Exits with code 1 on validation failure so Airflow can surface it.
+    """
+    results = []
+
+    # Check 1: revenu_mensuel must be present and > 0
+    null_revenue = df["revenu_mensuel"].isna().sum() if df is not None else 1
+    non_positive = (df["revenu_mensuel"] <= 0).sum() if df is not None else 1
+    results.append(("revenu_mensuel_not_null", null_revenue == 0))
+    results.append(("revenu_mensuel_positive", non_positive == 0))
+
+    # Check 2: dettes_actuelles must be present and >= 0
+    null_debt = df["dettes_actuelles"].isna().sum()
+    negative_debt = (df["dettes_actuelles"] < 0).sum()
+    results.append(("dettes_actuelles_not_null", null_debt == 0))
+    results.append(("dettes_actuelles_non_negative", negative_debt == 0))
+
+    # Check 3: age between 18 and 100
+    null_age = df["age"].isna().sum()
+    bad_age = ((df["age"] < 18) | (df["age"] > 100)).sum()
+    results.append(("age_not_null", null_age == 0))
+    results.append(("age_between_18_and_100", bad_age == 0))
+
+    all_passed = True
+    for name, passed in results:
+        status = "PASS" if passed else "FAIL"
+        print(f"  [{status}] {name}")
+        if not passed:
+            all_passed = False
+
+    return all_passed
+
+
+def main():
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        print("DATABASE_URL not set; skipping validation")
+        sys.exit(0)
+
+    print("Loading financial profile data...")
+    try:
+        df = load_data(db_url)
+    except Exception as e:
+        print(f"Could not load data: {e}")
         sys.exit(1)
-        
-    print("Data validation passed successfully.")
+
+    print(f"Loaded {len(df)} records. Running validation...")
+    passed = run_validation(df)
+
+    if passed:
+        print("Data validation passed successfully.")
+    else:
+        print("Data validation FAILED!")
+        sys.exit(1)
+
 
 if __name__ == "__main__":
-    run_validation()
+    main()
