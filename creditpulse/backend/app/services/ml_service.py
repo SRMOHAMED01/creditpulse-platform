@@ -43,7 +43,28 @@ def predict_credit(profile: dict) -> dict:
     try:
         from ml.serve import predict
 
-        return predict(profile, model_path=str(settings.MODEL_PATH))
+        result = predict(profile, model_path=str(settings.MODEL_PATH))
+
+        # Palier D: log predictions to MLflow for monitoring
+        try:
+            import os
+
+            import mlflow
+
+            mlflow.set_tracking_uri(
+                os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
+            )
+            mlflow.set_experiment("creditpulse-credit-scoring")
+            with mlflow.start_run(run_name="inference"):
+                mlflow.log_metric("score", result["score"])
+                mlflow.log_metric("probability_default", result["probability_default"])
+                mlflow.log_metric(
+                    "decision_accepted", 1 if result["decision"] == "accepté" else 0
+                )
+        except Exception:
+            logger.warning("MLflow logging skipped (not configured)")
+
+        return result
     except (ImportError, OSError, RuntimeError, ValueError) as exc:
         logger.exception("Scoring unavailable; check dependencies and MODEL_PATH")
         raise ScoringUnavailable(

@@ -10,6 +10,8 @@ Pipeline :
 5. Sauvegarde du modèle
 """
 
+import os
+
 from .paths import resolve_model_path
 
 import mlflow
@@ -266,22 +268,17 @@ def train_model(df: pd.DataFrame):
 
 def log_to_mlflow(model, params, metrics):
     """
-    Enregistre le modèle, les paramètres et les métriques
-    dans MLflow.
+    Enregistre le modèle, les paramètres et les métriques dans MLflow.
     """
 
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
+    mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment("creditpulse-credit-scoring")
 
     with mlflow.start_run():
-
         mlflow.log_params(params)
-
         mlflow.log_metrics(metrics)
-
-        mlflow.xgboost.log_model(
-            model,
-            "model",
-        )
+        mlflow.xgboost.log_model(model, "model")
 
 
 # ============================================================

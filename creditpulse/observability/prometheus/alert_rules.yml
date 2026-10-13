@@ -1,0 +1,22 @@
+# alert_rules.yml — Règles d'alerte Prometheus (Palier E.2)
+
+groups:
+  - name: creditpulse-alerts
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API error rate (>5%)"
+          description: "CreditPulse API error rate has exceeded 5% for 5 minutes."
+
+      - alert: ScoringUnavailable
+        expr: up{job="creditpulse-backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CreditPulse backend is down"
+          description: "The backend service has been unreachable for more than 2 minutes."

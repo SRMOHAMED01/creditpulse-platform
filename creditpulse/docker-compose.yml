@@ -38,6 +38,7 @@ services:
       MODEL_PATH: /app/ml/model_registry/model.json
       CORS_ORIGINS: '["http://localhost:5173","http://127.0.0.1:5173"]'
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MLFLOW_TRACKING_URI: http://mlflow:5000
     ports:
       - "8000:8000"
     depends_on:
@@ -45,6 +46,8 @@ services:
         condition: service_completed_successfully
       kafka:
         condition: service_healthy
+      mlflow:
+        condition: service_started
     volumes:
       - ./backend:/app/backend
       - ./ml:/app/ml
@@ -185,6 +188,7 @@ services:
     environment:
       MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       MLFLOW_ARTIFACT_ROOT: /mlflow/artifacts
+      MLFLOW_TRACKING_URI: http://mlflow:5000
     volumes:
       - mlflow_data:/mlflow
 
@@ -198,6 +202,7 @@ services:
       - "9090:9090"
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./observability/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus/"
@@ -206,6 +211,16 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager/"
 
   grafana:
     image: grafana/grafana:latest
