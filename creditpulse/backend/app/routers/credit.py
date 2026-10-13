@@ -23,7 +23,11 @@ from ..schemas.credit import (
     CreditApplicationRequest,
     SavedCreditApplicationResponse,
 )
-from ..services.ml_service import ScoringUnavailable, predict_credit
+from ..services.ml_service import (
+    ScoringUnavailable,
+    get_feature_store_values,
+    predict_credit,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +61,11 @@ def apply_credit(
     Effectue le scoring d'une demande de crédit authentifiée (synchrone).
     """
     profile = _profile_from_request(application)
+
+    # Palier B: use dbt-computed dti_ratio from feature store if available
+    fs_values = get_feature_store_values(db, current_user.id)
+    if fs_values and fs_values.get("dti_ratio") is not None:
+        profile["dti_ratio"] = fs_values["dti_ratio"]
 
     try:
         result = predict_credit(profile)
