@@ -13,13 +13,13 @@ from .core.config import PROJECT_ROOT, settings
 logger = logging.getLogger(__name__)
 
 
-def _build_engine():
+def build_engine(url: str | None = None):
     """Create the SQLAlchemy engine for the configured DATABASE_URL.
 
-    If the configured PostgreSQL URL is unreachable, fall back to
-    SQLite so the application remains functional (local dev / tests).
+    If the configured URL is unreachable (e.g. PostgreSQL not running in
+    local development), fall back to SQLite so callers stay functional.
     """
-    url = settings.DATABASE_URL
+    url = url or settings.DATABASE_URL
 
     try:
         engine = create_engine(
@@ -44,7 +44,7 @@ def _build_engine():
         )
 
 
-engine = _build_engine()
+engine = build_engine()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

@@ -1,9 +1,33 @@
 .env
 .git
 .github
-**/.pytest_cache
-**/__pycache__
+.ruff_cache
+.pytest_cache
+.mypy_cache
+
+# Python environments & caches
 **/.venv
+**/venv
+**/__pycache__
+**/*.py[cod]
+
+# Node
+**/node_modules
 frontend/node_modules
 frontend/dist
+frontend/build
+frontend/playwright-report
+frontend/test-results
+
+# Local databases & ML artifacts
+*.db
+*.sqlite*
+creditpulse_runtime.db
+mlruns/
 ml/mlruns
+data_pipeline/airflow.db
+data_pipeline/logs/
+
+# dbt compilation output
+data_pipeline/dbt_project/target/
+data_pipeline/dbt_profiles/.user.yml

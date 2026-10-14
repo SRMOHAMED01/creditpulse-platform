@@ -123,6 +123,21 @@ docker-compose.override.yml
 .docker/
 
 # ==========================================
+# 8. Tooling Artifacts
+# ==========================================
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.hypothesis/
+.mypy_cache/
+
+# Repository tree dumps (local debugging artifacts)
+project_tree.txt
+*.tree.txt
+
+# ==========================================
 # 8. OS-Generated Files
 # ==========================================
 .DS_Store
