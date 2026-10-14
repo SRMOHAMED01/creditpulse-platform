@@ -10,7 +10,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "20261011_0003_feature_store"
-down_revision = "20261008_0002_assessment_history"
+down_revision = "20261008_0002"
 branch_labels = None
 depends_on = None
 
