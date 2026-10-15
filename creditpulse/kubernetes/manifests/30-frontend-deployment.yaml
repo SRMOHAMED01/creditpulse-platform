@@ -1,0 +1,72 @@
+# Frontend React/Vite — Deployment + Service (Palier G)
+# Build (depuis frontend/) :
+#   docker build -t creditpulse-frontend:latest \
+#     --build-arg VITE_API_BASE_URL=/api ./frontend
+# /api = chemin exposé par l'Ingress vers le backend (voir 40-ingress.yaml).
+apiVersion: v1
+kind: Service
+metadata:
+  name: creditpulse-frontend
+  namespace: creditpulse
+  labels:
+    app.kubernetes.io/name: creditpulse-frontend
+    app.kubernetes.io/part-of: creditpulse
+spec:
+  selector:
+    app: creditpulse-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 5173
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: creditpulse-frontend
+  namespace: creditpulse
+  labels:
+    app.kubernetes.io/name: creditpulse-frontend
+    app.kubernetes.io/part-of: creditpulse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: creditpulse-frontend
+  template:
+    metadata:
+      labels:
+        app: creditpulse-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: creditpulse-frontend:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: VITE_API_BASE_URL
+              value: /api
+          ports:
+            - name: http
+              containerPort: 5173
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5173
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5173
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

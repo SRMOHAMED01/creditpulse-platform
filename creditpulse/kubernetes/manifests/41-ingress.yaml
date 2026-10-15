@@ -1,0 +1,39 @@
+# Ingress — point d'entrée unique (Palier G)
+# - /     → frontend
+# - /api/* → backend, réécriture du préfixe (/api/auth/login → /auth/login)
+# Prérequis : ingress-nginx installé (kubectl apply -f
+# https://kubernetes.github.io/ingress-nginx/deploy/) + metrics-server
+# (nécessaire au HPA).
+# Accès local : ajouter "127.0.0.1 creditpulse.local" dans le fichier hosts,
+# puis http://creditpulse.local
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: creditpulse-ingress
+  namespace: creditpulse
+  labels:
+    app.kubernetes.io/name: creditpulse-ingress
+    app.kubernetes.io/part-of: creditpulse
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2$3
+    nginx.ingress.kubernetes.io/proxy-body-size: "2m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: creditpulse.local
+      http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: creditpulse-backend
+                port:
+                  number: 8000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: creditpulse-frontend
+                port:
+                  number: 80

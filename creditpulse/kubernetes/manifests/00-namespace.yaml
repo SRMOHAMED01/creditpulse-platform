@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: creditpulse
+  labels:
+    app.kubernetes.io/name: creditpulse
+    app.kubernetes.io/part-of: creditpulse

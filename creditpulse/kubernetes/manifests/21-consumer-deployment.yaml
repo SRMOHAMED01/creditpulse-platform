@@ -1,0 +1,97 @@
+# Consumer Kafka — scoring asynchrone (Palier C.2)
+# Même image que le backend, commande différente. Replicas > 1 toléré :
+# le consumer utilise un group id Kafka (les partitions sont réparties).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: creditpulse-consumer
+  namespace: creditpulse
+  labels:
+    app.kubernetes.io/name: creditpulse-consumer
+    app.kubernetes.io/part-of: creditpulse
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: creditpulse-consumer
+  template:
+    metadata:
+      labels:
+        app: creditpulse-consumer
+    spec:
+      initContainers:
+        - name: migrate
+          image: creditpulse-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["alembic", "upgrade", "head"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: creditpulse-secret
+                  key: DATABASE_URL
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: creditpulse-secret
+                  key: SECRET_KEY
+            - name: MODEL_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: creditpulse-config
+                  key: MODEL_PATH
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      containers:
+        - name: consumer
+          image: creditpulse-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "app.kafka.consumer"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: creditpulse-secret
+                  key: DATABASE_URL
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: creditpulse-secret
+                  key: SECRET_KEY
+            - name: MODEL_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: creditpulse-config
+                  key: MODEL_PATH
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef:
+                  name: creditpulse-config
+                  key: KAFKA_BOOTSTRAP_SERVERS
+            - name: KAFKA_TOPIC_REQUESTS
+              valueFrom:
+                configMapKeyRef:
+                  name: creditpulse-config
+                  key: KAFKA_TOPIC_REQUESTS
+            - name: KAFKA_TOPIC_DECISIONS
+              valueFrom:
+                configMapKeyRef:
+                  name: creditpulse-config
+                  key: KAFKA_TOPIC_DECISIONS
+            - name: MLFLOW_TRACKING_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: creditpulse-config
+                  key: MLFLOW_TRACKING_URI
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

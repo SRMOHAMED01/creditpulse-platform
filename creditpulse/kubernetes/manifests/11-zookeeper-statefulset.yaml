@@ -1,0 +1,68 @@
+# Zookeeper — dépendance de Kafka (Palier C), équivalent du service compose.
+apiVersion: v1
+kind: Service
+metadata:
+  name: creditpulse-zookeeper
+  namespace: creditpulse
+  labels:
+    app.kubernetes.io/name: creditpulse-zookeeper
+    app.kubernetes.io/part-of: creditpulse
+spec:
+  clusterIP: None
+  selector:
+    app: creditpulse-zookeeper
+  ports:
+    - name: client
+      port: 2181
+      targetPort: 2181
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: creditpulse-zookeeper
+  namespace: creditpulse
+  labels:
+    app.kubernetes.io/name: creditpulse-zookeeper
+    app.kubernetes.io/part-of: creditpulse
+spec:
+  serviceName: creditpulse-zookeeper
+  replicas: 1
+  selector:
+    matchLabels:
+      app: creditpulse-zookeeper
+  template:
+    metadata:
+      labels:
+        app: creditpulse-zookeeper
+    spec:
+      containers:
+        - name: zookeeper
+          image: confluentinc/cp-zookeeper:7.6.1
+          ports:
+            - name: client
+              containerPort: 2181
+          env:
+            - name: ZOOKEEPER_CLIENT_PORT
+              value: "2181"
+            - name: ZOOKEEPER_TICK_TIME
+              value: "2000"
+          readinessProbe:
+            exec:
+              command: ["bash", "-c", "echo 'srvr' | nc -w 2 localhost 2181"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: zookeeper-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

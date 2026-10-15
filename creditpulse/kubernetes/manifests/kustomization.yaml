@@ -1,0 +1,24 @@
+# Déploiement complet :
+#   cd creditpulse
+#   docker build -t creditpulse-backend:latest -f backend/Dockerfile .
+#   docker build -t creditpulse-frontend:latest --build-arg VITE_API_BASE_URL=/api ./frontend
+#   kubectl apply -k kubernetes/manifests
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: creditpulse
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/part-of: creditpulse
+resources:
+  - 00-namespace.yaml
+  - 01-configmap.yaml
+  - 02-secret.yaml
+  - 10-postgres-statefulset.yaml
+  - 11-zookeeper-statefulset.yaml
+  - 12-kafka-statefulset.yaml
+  - 20-backend-deployment.yaml
+  - 21-consumer-deployment.yaml
+  - 30-frontend-deployment.yaml
+  - 40-hpa-backend.yaml
+  - 41-ingress.yaml

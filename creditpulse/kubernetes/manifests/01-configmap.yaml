@@ -1,0 +1,22 @@
+# Config non sensible (Palier G) — équivalent des variables d'environnement
+# de docker-compose qui ne sont pas des secrets.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: creditpulse-config
+  namespace: creditpulse
+  labels:
+    app.kubernetes.io/name: creditpulse
+    app.kubernetes.io/part-of: creditpulse
+data:
+  POSTGRES_HOST: creditpulse-postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: creditpulse_db
+  # Chemin embarqué dans l'image backend (Dockerfile : COPY ml /app/ml)
+  MODEL_PATH: /app/ml/model_registry/model.json
+  # Origines explicites autorisées par CORS (validées par core/config.py)
+  CORS_ORIGINS: '["http://creditpulse.local","http://localhost:5173","http://127.0.0.1:5173"]'
+  KAFKA_BOOTSTRAP_SERVERS: creditpulse-kafka:9092
+  KAFKA_TOPIC_REQUESTS: credit-requests
+  KAFKA_TOPIC_DECISIONS: credit-decisions
+  MLFLOW_TRACKING_URI: http://creditpulse-mlflow:5000
