@@ -227,18 +227,22 @@ Tableaux de bord Grafana en direct pendant que tu envoies des requêtes de test.
 
 ## 📋 Table de suivi
 
-| Palier | Contenu | Différenciant pour Data Eng/Finance | Durée réaliste |
-|---|---|---|---|
-| A | Frontend + Backend + Modèle | Base solide | 3-4 semaines |
-| B | dbt + Feature Store + Airflow | ⭐⭐⭐ Très fort | 2-3 semaines |
-| C | Kafka event-driven | ⭐⭐⭐ Très fort | 2 semaines |
-| D | MLflow + Evidently | ⭐⭐ Fort | 1-2 semaines |
-| E | Prometheus + Grafana | ⭐⭐ Fort | 1 semaine |
-| F | Docker + CI/CD | ⭐ Attendu | 1 semaine |
-| G | Kubernetes | ⭐ Bonus | optionnel |
+| Palier | Contenu | Différenciant pour Data Eng/Finance | Durée réaliste | Statut |
+|---|---|---|---|---|
+| A | Frontend + Backend + Modèle | Base solide | 3-4 semaines | ✅ Fait |
+| B | dbt + Feature Store + Airflow | ⭐⭐⭐ Très fort | 2-3 semaines | ✅ Fait |
+| C | Kafka event-driven | ⭐⭐⭐ Très fort | 2 semaines | ✅ Fait |
+| D | MLflow + Evidently | ⭐⭐ Fort | 1-2 semaines | ✅ Fait |
+| E | Prometheus + Grafana | ⭐⭐ Attendu | 1 semaine | ✅ Fait |
+| F | Docker + CI/CD | ⭐ Attendu | 1 semaine | ✅ Fait |
+| G | Kubernetes | ⭐ Bonus | optionnel | ✅ Fait (manifests + HPA + Ingress) |
+
+**Statut final : les 7 paliers sont implémentés** (dernier commit : Palier G —
+manifests Kubernetes, HPA backend 2→10 pods, Ingress point d'entrée unique).
+Détails et commandes de déploiement : `kubernetes/README.md`.
 
 ---
 
 ## Comment on travaille ensemble à partir de maintenant
 
-On suit les paliers dans l'ordre. Pour chaque fichier du zip fourni, tu trouveras un commentaire en en-tête expliquant précisément ce qu'il doit contenir — c'est ta feuille de route ligne par ligne. Dis-moi quand tu veux qu'on commence le **Palier A.1 (génération des données + entraînement XGBoost)** et on code ensemble, toi à l'écriture, moi en guide.
+On suit les paliers dans l'ordre. Pour chaque fichier du zip fourni, tu trouveras un commentaire en en-tête expliquant précisément ce qu'il doit contenir — c'est ta feuille de route ligne par ligne.

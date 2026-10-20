@@ -148,3 +148,6 @@ project_tree.txt
 ehthumbs.db
 Thumbs.db
 [Dd]esktop.ini
+
+# Tutorial/guide docs (keep local only)
+creditpulse/docs/GUIDE_COMPLET.md

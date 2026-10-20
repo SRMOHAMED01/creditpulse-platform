@@ -1,19 +1,76 @@
 # CreditPulse
 
-CreditPulse is a learning/portfolio credit-risk application. The currently
-implemented core is React + FastAPI + PostgreSQL + XGBoost/SHAP. Kafka,
-Airflow, drift monitoring, and the wider observability stack are roadmap work;
-they are not part of the runnable core yet.
+CreditPulse is a credit-risk (scoring) platform built as a full data/ML product:
+React frontend, FastAPI API, PostgreSQL, and an XGBoost model with genuine
+TreeSHAP explanations. Around that core it ships a complete data pipeline
+(Airflow + dbt + Great Expectations), MLOps tracking and drift monitoring
+(MLflow + Evidently), observability (Prometheus + Grafana + Alertmanager),
+containerized infrastructure (Docker Compose), CI/CD (GitHub Actions), and
+Kubernetes manifests with autoscaling.
+
+The roadmap (`docs/GUIDE_COMPLET.md`) is organized in "paliers" (stages).
+All stages A through G are implemented and pushed to `main`.
 
 The model is trained on synthetic data. Its output demonstrates an ML product
 flow and must not be used for real lending decisions.
+
+## Architecture
+
+```
+                       ┌──────────────────────────────┐
+   Browser ──────────► │  React + Vite (5173)         │
+                       └──────────────┬───────────────┘
+                                      │ REST (JWT)
+                       ┌──────────────▼───────────────┐
+                       │  FastAPI (8000)              │
+                       │  /auth /credit /users /fs    │
+                       │  /health /ready /metrics     │
+                       └───┬──────────────────┬───────┘
+            sync scoring   │                  │  async event
+              ┌────────────▼──────┐   ┌───────▼─────────┐
+              │ XGBoost + TreeSHAP│   │ Kafka producer  │
+              │ (ml/serve.py)     │   │ credit-requests │
+              └───────────────────┘   └───────┬─────────┘
+                                              │
+                                    ┌─────────▼──────────┐
+                                    │ Kafka consumer     │
+                                    │ (scoring worker)   │
+                                    └─────────┬──────────┘
+                                              │
+   ┌──────────────────────────────────────────▼───────────────────────┐
+   │ PostgreSQL: users, financial_profiles, credit_applications,      │
+   │             feature_store                                         │
+   └──────┬───────────────────────────────────────┬───────────────────┘
+          │ hourly DAG                             │ features read back
+   ┌──────▼───────┐   ┌──────────┐   ┌──────────┐  │  at scoring time
+   │ Great        │──►│ dbt      │──►│feature_  │──┘
+   │ Expectations │   │ run      │   │store     │
+   └──────────────┘   └──────────┘   └──────────┘
+          │ drift check (Evidently / PSI) ──► MLflow (training + inference logs)
+
+   Observability: Prometheus ──► Grafana ──► Alertmanager
+   Packaging: docker-compose (12 services) · CI (GitHub Actions) · Kubernetes (HPA + Ingress)
+```
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| `backend/` | FastAPI app (`app/routers`, `app/services`, `app/models`, `app/kafka`), Alembic migrations, tests |
+| `frontend/` | React + Vite app (pages, components, hooks), vitest units, Playwright E2E |
+| `ml/` | Training (`train.py`), serving (`serve.py`), TreeSHAP (`explain.py`), drift (`monitor.py`), model registry |
+| `data_pipeline/` | Airflow DAG, dbt project, Great Expectations validation, drift script |
+| `observability/` | Prometheus config + alert rules, Alertmanager, Grafana dashboard |
+| `kubernetes/` | K8s manifests + kustomization + deployment guide (Palier G) |
+| `.github/workflows/ci.yml` | CI: backend tests, genuine-inference tests, E2E on an isolated Compose stack |
+| `docs/GUIDE_COMPLET.md` | The staged A→G roadmap |
 
 ## Prerequisites
 
 - Docker Desktop with Compose, or Python 3.13 and Node.js 20 for local work
 - A trained model at `ml/model_registry/model.json` (one is present in this checkout)
 
-## Docker startup
+## Docker startup (full stack)
 
 1. Copy `.env.example` to `.env`.
 2. Replace `SECRET_KEY` before any shared or deployed environment. Generate one
@@ -24,6 +81,17 @@ flow and must not be used for real lending decisions.
 
 Compose waits for PostgreSQL, runs `alembic upgrade head` in a one-time
 `migrate` service, and starts the API only after the migration succeeds.
+
+| Service | URL | Purpose |
+|---|---|---|
+| Frontend | http://localhost:5173 | React UI |
+| Backend API | http://localhost:8000/docs | REST API + OpenAPI |
+| Kafka | localhost:9092 | Async scoring events |
+| Airflow | http://localhost:8080 | Pipeline orchestration |
+| MLflow | http://localhost:5000 | Experiment/model tracking |
+| Prometheus | http://localhost:9090 | Metrics |
+| Grafana | http://localhost:3000 (admin/admin) | Dashboards |
+| Alertmanager | http://localhost:9093 | Alert routing |
 
 ## Local development
 
@@ -45,6 +113,9 @@ npm ci
 npm run dev
 ```
 
+Optional local services (Kafka, MLflow, Airflow) can be started individually
+with `docker compose up kafka mlflow airflow-webserver ...`.
+
 To train a new synthetic demonstration model, first install the training stack
 and then run the module from the project root:
 
@@ -59,6 +130,24 @@ backend/.venv/Scripts/python -m ml.train
 may be absolute or relative to this project directory. `CORS_ORIGINS` must be a
 JSON array of explicit frontend origins. The application refuses short or
 placeholder secrets and wildcard CORS configuration.
+
+Kafka (`KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_TOPIC_REQUESTS`), MLflow
+(`MLFLOW_TRACKING_URI`), and the frontend base URL (`VITE_API_BASE_URL`) are
+configured through the same `.env` / compose environment. In Kubernetes these
+values live in the ConfigMap and Secret under `kubernetes/manifests/`.
+
+## API surface
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /auth/register`, `POST /auth/login` | JWT authentication |
+| `POST /credit/apply` | Synchronous scoring (uses feature-store `dti_ratio` when available) |
+| `POST /credit/apply-async` | Publish to Kafka, returns `202` with a `pending` record |
+| `GET /credit/status/{id}` | Poll an async request (`pending` → `scored`/`failed`) |
+| `GET /credit/applications` | Assessment history (newest first) |
+| `GET /credit/stats` | Per-user totals, average score, accepted count |
+| `GET /health` / `GET /ready` | Liveness / readiness (DB tables + model loaded) |
+| `GET /metrics` | Prometheus metrics |
 
 ## Saved assessments
 
@@ -82,6 +171,22 @@ their unknown input snapshots, explanations, and model versions remain null.
 - `GET /health` is a liveness check: it confirms the API process is running.
 - `GET /ready` verifies the migrated database tables and configured model.
   It returns HTTP 503 with per-component status when a dependency is unavailable.
+
+## Data pipeline (Airflow + dbt + Great Expectations)
+
+The hourly DAG `credit_scoring_pipeline` runs:
+
+1. `validate_raw_data` — Great Expectations checks on `financial_profiles`
+   (revenue positive and non-null, debts non-negative, age 18–100). A failure
+   exits non-zero and fails the task.
+2. `run_dbt_models` — dbt builds `stg_financial_profiles`, `dti_ratio`,
+   `score_regularite`, and the `feature_store` table.
+3. `check_drift_and_retrain` — Evidently data-drift report with a PSI fallback
+   (threshold 0.2); a non-zero exit surfaces drift as a task failure.
+
+The API writes to `feature_store` when a profile is saved, and scoring reads the
+dbt-computed `dti_ratio` back, so training and serving use the same feature
+definition.
 
 ## Verification
 
@@ -116,16 +221,44 @@ It also checks that a different user cannot read the assessment. Run against a
 development/test database. For an already running frontend, set
 `E2E_EXTERNAL_SERVER=1`; `E2E_BASE_URL` and `E2E_API_URL` override the URLs.
 
-GitHub discovers the workflow at the repository root's `.github/workflows/ci.yml`.
-It runs backend and migration tests, genuine inference/TreeSHAP and complete API checks, a frontend
-build, and browser checks against an isolated Docker Compose PostgreSQL stack.
-Container readiness now includes both migrated database tables and model loading.
-Browser profile-loading checks mock the profile API only; the complete assessment
-flow uses the live API and native model.
+## CI/CD
 
-The complete API verification uses a newly migrated temporary SQLite database;
-the CI browser flow verifies PostgreSQL through Compose. CI must run on GitHub
-before its full Docker/browser result can be confirmed.
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push and pull request:
+
+- **backend job** (Python 3.13): API, privacy, and migration tests plus the
+  genuine inference/TreeSHAP verification suite against SQLite.
+- **browser job** (Node 20): frontend build, then the full Playwright flow
+  against an isolated Docker Compose PostgreSQL stack, with container logs and
+  reports uploaded when a step fails.
+
+## Kubernetes (Palier G)
+
+Production-style manifests live in `kubernetes/manifests/` (namespace, ConfigMap,
+Secret, PostgreSQL StatefulSet with PVC, Kafka + Zookeeper, backend Deployment
+with an Alembic initContainer, Kafka consumer, frontend, HPA 2→10 pods on CPU,
+and a single Ingress). Deploy with:
+
+```bash
+kubectl apply -k kubernetes/manifests
+```
+
+See `kubernetes/README.md` for prerequisites, image builds, and the load-test
+scaling demo.
+
+## Project status
+
+All roadmap stages are implemented: A (core app), B (dbt feature store + Airflow
++ Great Expectations), C (Kafka async scoring), D (MLflow + Evidently), E
+(Prometheus + Grafana + Alertmanager), F (Docker Compose + CI/CD), and G
+(Kubernetes manifests with HPA and Ingress).
+
+## Notes and limitations
+
+- The model is a **synthetic demonstration** model, not a lending decision tool.
+- `kubernetes/manifests/02-secret.yaml` contains development placeholders only;
+  use an external secret manager for real deployments.
+- Redis and MLflow are not part of the Kubernetes manifests; the scoring path
+  does not require them.
 
 The backend dependency groups are intentionally separate:
 
@@ -133,5 +266,5 @@ The backend dependency groups are intentionally separate:
 - `backend/requirements-dev.txt`: API, inference, and tests
 - `ml/requirements.txt`: training, experiment tracking, and monitoring tools
 
-See `docs/GUIDE_COMPLET.md` for the staged roadmap. Its later architecture is a
-target design, not a claim that every component is already operational.
+See `docs/GUIDE_COMPLET.md` for the staged roadmap. Its later architecture is
+a target design, not a claim that every component is already operational.
